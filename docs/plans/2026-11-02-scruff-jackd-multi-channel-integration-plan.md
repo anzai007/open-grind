@@ -195,17 +195,17 @@ export interface UniversalUserProfile {
   - 编写完备单元测试 `channel-state.test.ts` 和 `provider.test.ts`（全部通过）。
 
 ### Phase 2: Scruff 与 Jack'd 传输网关与账号池 (Relay Transport & Accounts)
-- [ ] **2.1 中继客户端底层网关 (`src/lib/channel/scruff-protocol/relay-client.ts`)**
+- [x] **2.1 中继客户端底层网关 (`src/lib/channel/scruff-protocol/relay-client.ts`)**
   - 支持中继通用 Headers 注入：`omni-key`、`omni-platform`、`omni-account`、`omni-proxy`。
   - 自动集成当前已完成的 `networkLoggerState`，每个中继请求自动输出到网络日志。
-- [ ] **2.2 Scruff 协议族公共适配器 (`ScruffProtocolBaseProvider.ts`)**
+- [x] **2.2 Scruff 协议族公共适配器 (`ScruffProtocolBaseProvider.ts`)**
   - 实现通用逻辑（参数组装、错误重试、分页计算、CDN 图片拼接）。
   - 分别导出子类：
     - `ScruffProvider`: 固化 `platform: 'scruff'`，交互为 `Woof`。
     - `JackdProvider`: 固化 `platform: 'jackd'`，上传传 `flavor: 'jackd'`，交互为 `Wave`。
-- [ ] **2.3 账号管理界面与导入能力**
-  - 在设置中增加“渠道与账号设置”模块。
-  - 支持添加 Scruff / Jack'd 账号凭证（注册邮箱 `email`，可选代理 `proxyUrl`，密码 `password`）。
+- [x] **2.3 账号管理界面与导入能力**
+  - 在设置和右上角菜单中增加“多渠道与账号管理”模块 (`ChannelAccountsDialog.svelte`)。
+  - 支持添加 Scruff / Jack'd 账号凭证（注册邮箱 `email`，独立网络代理 `proxyUrl`，自定义 `relayKey`）。
   - 账号有效性检测与设备自动注册（调用 `POST /app/account/register`）。
 
 ### Phase 3: 用户发现与个人资料适配 (Nearby Grid & Profile Mapping)

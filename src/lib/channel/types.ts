@@ -143,6 +143,7 @@ export interface ChannelAccount {
 	name: string;
 	avatarUrl?: string;
 	proxyUrl?: string; // Optional socks5:// or http:// proxy
+	relayKey?: string; // Optional custom relay key
 	isEnabled: boolean;
 	createdAt: number;
 	extraMeta?: Record<string, unknown>;

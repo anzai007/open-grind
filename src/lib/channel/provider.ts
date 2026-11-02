@@ -38,6 +38,15 @@ export interface SendMessageParams {
 	account?: ChannelAccount;
 }
 
+export interface VerifyAccountResult {
+	valid: boolean;
+	profileId?: string;
+	displayName?: string;
+	avatarUrl?: string;
+	errorMessage?: string;
+	rawPayload?: unknown;
+}
+
 export interface SocialChannelProvider {
 	readonly channel: SocialChannelType;
 	readonly meta: ChannelMeta;
@@ -66,4 +75,6 @@ export interface SocialChannelProvider {
 		targetUserId: string,
 		account?: ChannelAccount,
 	): Promise<UniversalInteractionResult>;
+
+	verifyAccount?(account: ChannelAccount): Promise<VerifyAccountResult>;
 }

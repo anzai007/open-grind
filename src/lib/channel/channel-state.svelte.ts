@@ -1,7 +1,9 @@
 import { SvelteMap } from "svelte/reactivity";
 
-import type { SocialChannelProvider } from "./provider";
+import type { SocialChannelProvider, VerifyAccountResult } from "./provider";
 import { GrindrProvider } from "./providers/grindr-provider";
+import { JackdProvider } from "./providers/jackd-provider";
+import { ScruffProvider } from "./providers/scruff-provider";
 import {
 	CHANNEL_METAS,
 	type ChannelAccount,
@@ -25,12 +27,16 @@ export class ChannelState {
 		scruff: null,
 		jackd: null,
 	});
+	isAccountDialogOpen = $state(false);
+	dialogChannel = $state<SocialChannelType>("scruff");
 
 	private providers: SvelteMap<SocialChannelType, SocialChannelProvider> =
 		new SvelteMap();
 
 	constructor() {
 		this.registerProvider("grindr", new GrindrProvider());
+		this.registerProvider("scruff", new ScruffProvider());
+		this.registerProvider("jackd", new JackdProvider());
 		this.loadFromStorage();
 	}
 
@@ -102,6 +108,45 @@ export class ChannelState {
 	setActiveAccount(channel: SocialChannelType, accountId: string | null) {
 		this.activeAccountIds[channel] = accountId;
 		this.saveToStorage();
+	}
+
+	openAccountDialog(channel?: SocialChannelType) {
+		this.dialogChannel = channel ?? this.activeChannel;
+		this.isAccountDialogOpen = true;
+	}
+
+	closeAccountDialog() {
+		this.isAccountDialogOpen = false;
+	}
+
+	async verifyAndSaveAccount(
+		channel: SocialChannelType,
+		account: ChannelAccount,
+	): Promise<VerifyAccountResult> {
+		const provider = this.getProvider(channel);
+		if (!provider?.verifyAccount) {
+			this.addAccount(account);
+			return { valid: true };
+		}
+
+		const result = await provider.verifyAccount(account);
+		if (result.valid) {
+			const updated: ChannelAccount = {
+				...account,
+				name:
+					result.displayName ||
+					account.name ||
+					account.accountIdentifier,
+				avatarUrl: result.avatarUrl || account.avatarUrl,
+				extraMeta: {
+					...(account.extraMeta ?? {}),
+					profileId: result.profileId,
+					verifiedAt: Date.now(),
+				},
+			};
+			this.addAccount(updated);
+		}
+		return result;
 	}
 
 	private loadFromStorage() {

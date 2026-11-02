@@ -88,4 +88,59 @@ describe("ChannelState", () => {
 		state.switchChannel("scruff");
 		expect(state.currentProvider).toBe(mockScruffProvider);
 	});
+
+	it("controls account dialog visibility and verifies accounts", async () => {
+		expect(state.isAccountDialogOpen).toBe(false);
+		state.openAccountDialog("jackd");
+		expect(state.isAccountDialogOpen).toBe(true);
+		expect(state.dialogChannel).toBe("jackd");
+
+		state.closeAccountDialog();
+		expect(state.isAccountDialogOpen).toBe(false);
+
+		const account: ChannelAccount = {
+			id: "acc-verify-1",
+			channel: "scruff",
+			accountIdentifier: "bear@example.com",
+			name: "Bear User",
+			isEnabled: true,
+			createdAt: Date.now(),
+		};
+
+		const mockVerifyProvider: SocialChannelProvider = {
+			channel: "scruff",
+			meta: state.currentMeta,
+			getNearbyUsers: () =>
+				Promise.resolve<PageResult<UniversalGridUser>>({
+					items: [],
+					offset: 0,
+					hasNext: false,
+				}),
+			getUserDetail: () => Promise.reject(new Error("unimplemented")),
+			getConversations: () =>
+				Promise.resolve({ items: [], offset: 0, hasNext: false }),
+			getMessages: () => Promise.resolve([]),
+			sendMessage: () => Promise.reject(new Error("unimplemented")),
+			sendInteraction: () =>
+				Promise.resolve({
+					success: true,
+					interactionType: "woof",
+					targetUserId: "123",
+				}),
+			verifyAccount: () =>
+				Promise.resolve({
+					valid: true,
+					displayName: "Verified Bear",
+					profileId: "9988",
+				}),
+		};
+
+		state.registerProvider("scruff", mockVerifyProvider);
+		const result = await state.verifyAndSaveAccount("scruff", account);
+
+		expect(result.valid).toBe(true);
+		expect(result.displayName).toBe("Verified Bear");
+		expect(state.accounts.scruff[0]?.name).toBe("Verified Bear");
+		expect(state.accounts.scruff[0]?.extraMeta?.profileId).toBe("9988");
+	});
 });

@@ -1,4 +1,5 @@
 import { getCascadeV4 } from "$lib/api/browse/grid";
+import { signedInProfileId } from "$lib/api/current-session";
 import { sendTap } from "$lib/api/interest/taps";
 import { getConversations } from "$lib/api/messaging/conversations";
 import { getConversationMessages } from "$lib/api/messaging/messages";
@@ -12,6 +13,7 @@ import type {
 	NearbyQueryParams,
 	SendMessageParams,
 	SocialChannelProvider,
+	VerifyAccountResult,
 } from "../provider";
 import {
 	CHANNEL_METAS,
@@ -289,5 +291,27 @@ export class GrindrProvider implements SocialChannelProvider {
 			message: "已向对方发送 Tap",
 			targetUserId,
 		};
+	}
+
+	async verifyAccount(): Promise<VerifyAccountResult> {
+		try {
+			const profileId = await signedInProfileId();
+			if (profileId) {
+				return {
+					valid: true,
+					profileId: String(profileId),
+					displayName: `Grindr Profile ${profileId}`,
+				};
+			}
+			return {
+				valid: false,
+				errorMessage: "No active Grindr session found",
+			};
+		} catch (e) {
+			return {
+				valid: false,
+				errorMessage: e instanceof Error ? e.message : String(e),
+			};
+		}
 	}
 }
