@@ -209,17 +209,18 @@ export interface UniversalUserProfile {
   - 账号有效性检测与设备自动注册（调用 `POST /app/account/register`）。
 
 ### Phase 3: 用户发现与个人资料适配 (Nearby Grid & Profile Mapping)
-- [ ] **3.1 附近用户分页流适配 (`/app/location`)**
-  - 封装 `offset` 步进为 `100` 的增量分页逻辑。
+- [x] **3.1 附近用户分页流适配 (`/app/location`)**
+  - 封装 `offset` 步进为 `100` 的增量分页逻辑与状态机 (`channelGridState.svelte.ts`)。
   - 将接口返回的 `results[]` 转换为 `UniversalGridUser` 列表。
   - 支持标签筛选（将选中的标签序列化为 JSON 字符串传给 `hashtags`）。
-- [ ] **3.2 个人资料全量映射 (`/app/profile`)**
-  - 映射照片列表：首图与相册图解析并拼接 CDN 路径。
-  - 映射身高/体重、族群 (Community)、角色偏好、体毛、社交链接。
-- [ ] **3.3 网格与资料卡 UI 适配**
-  - 主页面网格展示当前渠道用户的头像、距离、在线状态。
-  - 详情抽屉/弹窗显示 Scruff / Jack'd 特有的族群标签与社媒链接。
-  - 增加“嗷呜 (Woof)”与“挥手 (Wave)”交互按钮。
+- [x] **3.2 个人资料全量映射 (`/app/profile`)**
+  - 映射照片列表：首图与相册图解析并拼接 CDN 路径（缩略图 `-thumbnail-300`，高清 `-fullsize-400K`）。
+  - 映射身高/体重、族群 (Community)、角色偏好、体毛、社交外链。
+- [x] **3.3 网格与资料卡 UI 适配**
+  - 顶部栏添加渠道快速切换器 (`ChannelSwitcher.svelte`)。
+  - 主页面网格按当前渠道展示多渠道网格 (`ChannelGrid.svelte`)，支持无限滚动触底增量加载。
+  - 统一用户详情卡弹窗 (`UniversalProfileDialog.svelte`)，支持多图相册预览、身体资料、社媒跳转。
+  - 支持发送“嗷呜 (Woof)”、“打招呼 (Wave)”与“Tap”渠道原生交互。
 
 ### Phase 4: 即时通讯 (IM) 与会话系统 (Conversations & Chat)
 - [ ] **4.1 会话列表同步 (`/_private/im/conversations`)**

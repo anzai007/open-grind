@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { channelState } from "$lib/channel/channel-state.svelte";
+	import ChannelGrid from "$lib/channel/components/ChannelGrid.svelte";
 	import ApiErrorDisplay from "$lib/components/feedback/ApiErrorDisplay.svelte";
 	import PagingSentinel from "$lib/components/shared/PagingSentinel.svelte";
 	import { gridState } from "$lib/grid/grid-state.svelte";
@@ -32,85 +34,95 @@
 	);
 
 	$effect.pre(() => {
-		gridState.load(geohash);
+		if (channelState.activeChannel === "grindr") {
+			gridState.load(geohash);
+		}
 	});
 
-	$effect(() => gridState.attachView());
+	$effect(() => {
+		if (channelState.activeChannel === "grindr") {
+			return gridState.attachView();
+		}
+	});
 </script>
 
-<div class="relative flex flex-1 flex-col">
-	<div
-		bind:this={gridElement}
-		data-slot="grid-cells"
-		class="photo-grid"
-		style:padding-top="{view.paddingTopPx}px"
-		style:padding-bottom="{view.paddingBottomPx}px"
-		data-rows-above={view.hasRowsAbove || undefined}
-		data-rows-below={view.hasRowsBelow || undefined}
-	>
-		{#if gridState.loading && gridState.profiles.length === 0}
-			{#each Array.from({ length: PAGE_SKELETONS })}
-				<GridCellSkeleton />
-			{/each}
-		{:else if gridState.error && gridState.profiles.length === 0}
-			<div class="col-span-full flex p-4">
-				<ApiErrorDisplay
-					error={gridState.error}
-					onRetry={() => gridState.retry()}
-					class="m-auto"
-				/>
-			</div>
-		{:else}
-			{#if gridState.profiles.length === 0}
-				<EmptyGrid />
-			{/if}
-			{#each visibleProfiles as item (item.id)}
-				{#if item.type === "rendered"}
-					<GridProfileMiniCard
-						id={item.id}
-						displayName={item.displayName}
-						distance={item.distance}
-						unread={item.unread}
-						onlineUntil={item.onlineUntil}
-						isFavorite={item.isFavorite}
-						isVisiting={item.isVisiting}
-						hadRecentChat={item.hasChattedInLast24Hrs}
-						medias={item.profilePhotosHashes?.map((mediaHash) => ({
-							mediaHash,
-						})) ?? []}
+{#if channelState.activeChannel === "grindr"}
+	<div class="relative flex flex-1 flex-col">
+		<div
+			bind:this={gridElement}
+			data-slot="grid-cells"
+			class="photo-grid"
+			style:padding-top="{view.paddingTopPx}px"
+			style:padding-bottom="{view.paddingBottomPx}px"
+			data-rows-above={view.hasRowsAbove || undefined}
+			data-rows-below={view.hasRowsBelow || undefined}
+		>
+			{#if gridState.loading && gridState.profiles.length === 0}
+				{#each Array.from({ length: PAGE_SKELETONS })}
+					<GridCellSkeleton />
+				{/each}
+			{:else if gridState.error && gridState.profiles.length === 0}
+				<div class="col-span-full flex p-4">
+					<ApiErrorDisplay
+						error={gridState.error}
+						onRetry={() => gridState.retry()}
+						class="m-auto"
 					/>
-				{:else}
-					<GridCellSkeleton
-						onVisible={() => {
-							gridState
-								.resolveProfile(item.id)
-								.catch((error) => console.error(error));
-						}}
-					/>
+				</div>
+			{:else}
+				{#if gridState.profiles.length === 0}
+					<EmptyGrid />
 				{/if}
-			{/each}
-			{#each Array.from({ length: visibleSkeletons })}
-				<GridCellSkeleton />
-			{/each}
-		{/if}
-	</div>
-	<div role="status" class="sr-only">
-		{gridState.paging.running
-			? "Loading more profiles"
-			: gridState.paging.failure
-				? "Failed to load more profiles"
-				: ""}
-	</div>
-	{#if gridState.nextPage !== 0 && gridState.nextPage !== null}
-		{#if gridState.paging.failure}
-			<ApiErrorDisplay
-				error={gridState.paging.failure}
-				onRetry={() => gridState.paging.retry()}
+				{#each visibleProfiles as item (item.id)}
+					{#if item.type === "rendered"}
+						<GridProfileMiniCard
+							id={item.id}
+							displayName={item.displayName}
+							distance={item.distance}
+							unread={item.unread}
+							onlineUntil={item.onlineUntil}
+							isFavorite={item.isFavorite}
+							isVisiting={item.isVisiting}
+							hadRecentChat={item.hasChattedInLast24Hrs}
+							medias={item.profilePhotosHashes?.map(
+								(mediaHash) => ({ mediaHash }),
+							) ?? []}
+						/>
+					{:else}
+						<GridCellSkeleton
+							onVisible={() => {
+								gridState
+									.resolveProfile(item.id)
+									.catch((error) => console.error(error));
+							}}
+						/>
+					{/if}
+				{/each}
+				{#each Array.from({ length: visibleSkeletons })}
+					<GridCellSkeleton />
+				{/each}
+			{/if}
+		</div>
+		<div role="status" class="sr-only">
+			{gridState.paging.running
+				? "Loading more profiles"
+				: gridState.paging.failure
+					? "Failed to load more profiles"
+					: ""}
+		</div>
+		{#if gridState.nextPage !== 0 && gridState.nextPage !== null}
+			{#if gridState.paging.failure}
+				<ApiErrorDisplay
+					error={gridState.paging.failure}
+					onRetry={() => gridState.paging.retry()}
+				/>
+			{/if}
+			<PagingSentinel
+				paging={gridState.paging}
+				class="pointer-events-none absolute inset-x-0 bottom-0 h-px"
 			/>
 		{/if}
-		<PagingSentinel
-			paging={gridState.paging}
-			class="pointer-events-none absolute inset-x-0 bottom-0 h-px"
-		/>
-	{/if}
-</div>
+	</div>
+{:else}
+	<ChannelGrid {geohash} />
+{/if}

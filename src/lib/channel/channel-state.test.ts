@@ -143,4 +143,48 @@ describe("ChannelState", () => {
 		expect(state.accounts.scruff[0]?.name).toBe("Verified Bear");
 		expect(state.accounts.scruff[0]?.extraMeta?.profileId).toBe("9988");
 	});
+
+	it("opens and closes user profiles and sends interactions", async () => {
+		const mockDetailProvider: SocialChannelProvider = {
+			channel: "scruff",
+			meta: state.currentMeta,
+			getNearbyUsers: () =>
+				Promise.resolve({ items: [], offset: 0, hasNext: false }),
+			getUserDetail: (id) =>
+				Promise.resolve({
+					channel: "scruff",
+					id,
+					displayName: "Super Star",
+					photos: [],
+					isOnline: true,
+				}),
+			getConversations: () =>
+				Promise.resolve({ items: [], offset: 0, hasNext: false }),
+			getMessages: () => Promise.resolve([]),
+			sendMessage: () => Promise.reject(new Error("unimplemented")),
+			sendInteraction: (targetUserId) =>
+				Promise.resolve({
+					success: true,
+					interactionType: "woof",
+					targetUserId,
+					message: "嗷呜成功",
+				}),
+		};
+
+		state.registerProvider("scruff", mockDetailProvider);
+		state.switchChannel("scruff");
+
+		expect(state.isProfileOpen).toBe(false);
+		await state.openProfile("star-77");
+		expect(state.isProfileOpen).toBe(true);
+		expect(state.selectedUserProfile?.displayName).toBe("Super Star");
+
+		const actionRes = await state.sendInteraction("star-77");
+		expect(actionRes.success).toBe(true);
+		expect(actionRes.interactionType).toBe("woof");
+
+		state.closeProfile();
+		expect(state.isProfileOpen).toBe(false);
+		expect(state.selectedUserProfile).toBeNull();
+	});
 });

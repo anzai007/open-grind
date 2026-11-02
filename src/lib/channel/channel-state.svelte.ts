@@ -9,6 +9,8 @@ import {
 	type ChannelAccount,
 	type ChannelMeta,
 	type SocialChannelType,
+	type UniversalInteractionResult,
+	type UniversalUserProfile,
 } from "./types";
 
 const STORAGE_KEY_CHANNEL = "og_active_channel";
@@ -29,6 +31,11 @@ export class ChannelState {
 	});
 	isAccountDialogOpen = $state(false);
 	dialogChannel = $state<SocialChannelType>("scruff");
+
+	selectedUserProfile = $state<UniversalUserProfile | null>(null);
+	isProfileOpen = $state(false);
+	isProfileLoading = $state(false);
+	profileError = $state<string | null>(null);
 
 	private providers: SvelteMap<SocialChannelType, SocialChannelProvider> =
 		new SvelteMap();
@@ -117,6 +124,41 @@ export class ChannelState {
 
 	closeAccountDialog() {
 		this.isAccountDialogOpen = false;
+	}
+
+	async openProfile(userId: string) {
+		this.isProfileOpen = true;
+		this.isProfileLoading = true;
+		this.profileError = null;
+		this.selectedUserProfile = null;
+
+		try {
+			const profile = await this.currentProvider.getUserDetail(
+				userId,
+				this.currentAccount,
+			);
+			this.selectedUserProfile = profile;
+		} catch (err) {
+			this.profileError =
+				err instanceof Error ? err.message : String(err);
+		} finally {
+			this.isProfileLoading = false;
+		}
+	}
+
+	closeProfile() {
+		this.isProfileOpen = false;
+		this.selectedUserProfile = null;
+		this.profileError = null;
+	}
+
+	async sendInteraction(
+		targetUserId: string,
+	): Promise<UniversalInteractionResult> {
+		return await this.currentProvider.sendInteraction(
+			targetUserId,
+			this.currentAccount,
+		);
 	}
 
 	async verifyAndSaveAccount(

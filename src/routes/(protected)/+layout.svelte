@@ -2,6 +2,7 @@
 	import { onMount } from "svelte";
 
 	import ChannelAccountsDialog from "$lib/channel/components/ChannelAccountsDialog.svelte";
+	import UniversalProfileDialog from "$lib/channel/components/UniversalProfileDialog.svelte";
 	import CommandCenter from "$lib/components/command-center/CommandCenter.svelte";
 	import MediaDropOverlay from "$lib/components/shared/MediaDropOverlay.svelte";
 	import { restoreStrandedLocation } from "$lib/entitlements/honduras-hold";
@@ -33,3 +34,4 @@
 <MediaDropOverlay />
 <NetworkLoggerDialog />
 <ChannelAccountsDialog />
+<UniversalProfileDialog />

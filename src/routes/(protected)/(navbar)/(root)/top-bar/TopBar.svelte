@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ChannelSwitcher from "$lib/channel/components/ChannelSwitcher.svelte";
 	import CommandCenterTrigger from "$lib/components/command-center/CommandCenterTrigger.svelte";
 	import ProgressiveBlur from "$lib/components/shared/ProgressiveBlur.svelte";
 	import TopMenu from "$lib/network-logger/TopMenu.svelte";
@@ -21,8 +22,9 @@
 	<div class="flex items-center justify-between gap-1 p-4 pt-0">
 		<div
 			data-scroll-intent="x"
-			class="scrollbar-thin flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+			class="scrollbar-thin flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
 		>
+			<ChannelSwitcher />
 			<LocationChange />
 			<QuickFilters bind:openFilters />
 		</div>
