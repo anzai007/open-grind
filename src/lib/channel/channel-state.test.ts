@@ -1,4 +1,14 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { mockSetPreferences, mockPreferencesSnapshot } = vi.hoisted(() => ({
+	mockSetPreferences: vi.fn(() => Promise.resolve()),
+	mockPreferencesSnapshot: vi.fn(() => ({ geohash: "te7u8" })),
+}));
+
+vi.mock("$lib/app-data/preferences.svelte", () => ({
+	preferencesSnapshot: mockPreferencesSnapshot,
+	setPreferences: mockSetPreferences,
+}));
 
 import { ChannelState } from "./channel-state.svelte";
 import type { SocialChannelProvider } from "./provider";
@@ -186,5 +196,58 @@ describe("ChannelState", () => {
 		state.closeProfile();
 		expect(state.isProfileOpen).toBe(false);
 		expect(state.selectedUserProfile).toBeNull();
+	});
+
+	it("supports switching between multiple accounts and binds per-account location", () => {
+		const account1: ChannelAccount = {
+			id: "acc-mumbai",
+			channel: "scruff",
+			accountIdentifier: "mumbai@example.com",
+			name: "Mumbai User",
+			isEnabled: true,
+			createdAt: Date.now(),
+			lastGeohash: "te7u8",
+			lastLocationName: "印度·孟买",
+		};
+
+		const account2: ChannelAccount = {
+			id: "acc-tokyo",
+			channel: "scruff",
+			accountIdentifier: "tokyo@example.com",
+			name: "Tokyo User",
+			isEnabled: true,
+			createdAt: Date.now(),
+			lastGeohash: "xn76u",
+			lastLocationName: "日本·东京",
+		};
+
+		state.addAccount(account1);
+		state.addAccount(account2);
+
+		expect(state.accounts.scruff).toHaveLength(2);
+
+		// Switch to account 1
+		state.switchChannel("scruff");
+		state.setActiveAccount("scruff", "acc-mumbai");
+		expect(state.currentAccount?.id).toBe("acc-mumbai");
+		expect(state.currentAccount?.lastGeohash).toBe("te7u8");
+		expect(state.currentAccount?.lastLocationName).toBe("印度·孟买");
+
+		// Record a new location for account 1
+		state.recordCurrentLocation("dr5ru", "美国·纽约");
+		expect(state.currentAccount?.lastGeohash).toBe("dr5ru");
+		expect(state.currentAccount?.lastLocationName).toBe("美国·纽约");
+
+		// Switch to account 2
+		state.setActiveAccount("scruff", "acc-tokyo");
+		expect(state.currentAccount?.id).toBe("acc-tokyo");
+		expect(state.currentAccount?.lastGeohash).toBe("xn76u");
+		expect(state.currentAccount?.lastLocationName).toBe("日本·东京");
+
+		// Switch back to account 1 and ensure updated location was persisted
+		state.setActiveAccount("scruff", "acc-mumbai");
+		expect(state.currentAccount?.id).toBe("acc-mumbai");
+		expect(state.currentAccount?.lastGeohash).toBe("dr5ru");
+		expect(state.currentAccount?.lastLocationName).toBe("美国·纽约");
 	});
 });

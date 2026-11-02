@@ -114,6 +114,13 @@
 							>
 								{acc.accountIdentifier}
 							</span>
+							{#if acc.lastLocationName}
+								<div
+									class="mt-0.5 flex items-center gap-1 truncate text-[10px] font-medium text-muted-foreground/90"
+								>
+									<span>📍 {acc.lastLocationName}</span>
+								</div>
+							{/if}
 							{#if acc.proxyUrl}
 								<div
 									class="mt-0.5 flex items-center gap-1 truncate font-mono text-[10px] text-muted-foreground/80"

@@ -1,5 +1,10 @@
 import { SvelteMap } from "svelte/reactivity";
 
+import {
+	preferencesSnapshot,
+	setPreferences,
+} from "$lib/app-data/preferences.svelte";
+import { getGeohashLocationLabel } from "./location-helper";
 import type { SocialChannelProvider, VerifyAccountResult } from "./provider";
 import { GrindrProvider } from "./providers/grindr-provider";
 import { JackdProvider } from "./providers/jackd-provider";
@@ -16,6 +21,7 @@ import {
 const STORAGE_KEY_CHANNEL = "og_active_channel";
 const STORAGE_KEY_ACCOUNTS = "og_channel_accounts";
 const STORAGE_KEY_ACTIVE_ACCOUNTS = "og_active_channel_accounts";
+const STORAGE_KEY_GRINDR_GEOHASH = "og_grindr_last_geohash";
 
 export class ChannelState {
 	activeChannel = $state<SocialChannelType>("grindr");
@@ -29,6 +35,7 @@ export class ChannelState {
 		scruff: null,
 		jackd: null,
 	});
+	grindrLastGeohash = $state<string | null>(null);
 	isAccountDialogOpen = $state(false);
 	dialogChannel = $state<SocialChannelType>("scruff");
 
@@ -81,13 +88,66 @@ export class ChannelState {
 
 	switchChannel(channel: SocialChannelType) {
 		if (this.activeChannel === channel) return;
+
+		// 记录离开当前渠道时的定位点
+		const currentGeohash = preferencesSnapshot().geohash;
+		if (currentGeohash) {
+			this.recordCurrentLocation(currentGeohash);
+		}
+
 		this.activeChannel = channel;
 		this.saveToStorage();
+
+		// 恢复目标渠道（及当前激活账号）绑定的最后一次定位点
+		if (channel === "grindr") {
+			if (this.grindrLastGeohash) {
+				setPreferences({ geohash: this.grindrLastGeohash }).catch(
+					() => {},
+				);
+			}
+		} else {
+			const acc = this.currentAccount;
+			if (acc?.lastGeohash) {
+				setPreferences({ geohash: acc.lastGeohash }).catch(() => {});
+			} else if (acc && currentGeohash) {
+				acc.lastGeohash = currentGeohash;
+				acc.lastLocationName = getGeohashLocationLabel(currentGeohash);
+				this.saveToStorage();
+			}
+		}
+	}
+
+	recordCurrentLocation(geohash: string, locationName?: string) {
+		if (!geohash) return;
+		const label = locationName || getGeohashLocationLabel(geohash);
+
+		if (this.activeChannel === "grindr") {
+			this.grindrLastGeohash = geohash;
+			this.saveToStorage();
+		} else {
+			const acc = this.currentAccount;
+			if (acc) {
+				acc.lastGeohash = geohash;
+				acc.lastLocationName = label;
+				this.saveToStorage();
+			}
+		}
 	}
 
 	addAccount(account: ChannelAccount) {
 		const list = this.accounts[account.channel];
 		const existingIndex = list.findIndex((a) => a.id === account.id);
+
+		// 若新账号未指定定位点，默认继承当前定位
+		if (!account.lastGeohash) {
+			const currentGeohash = preferencesSnapshot().geohash;
+			if (currentGeohash) {
+				account.lastGeohash = currentGeohash;
+				account.lastLocationName =
+					getGeohashLocationLabel(currentGeohash);
+			}
+		}
+
 		if (existingIndex >= 0) {
 			list[existingIndex] = account;
 		} else {
@@ -115,6 +175,24 @@ export class ChannelState {
 	setActiveAccount(channel: SocialChannelType, accountId: string | null) {
 		this.activeAccountIds[channel] = accountId;
 		this.saveToStorage();
+
+		if (accountId && channel !== "grindr") {
+			const acc = this.accounts[channel].find((a) => a.id === accountId);
+			if (acc) {
+				if (acc.lastGeohash) {
+					setPreferences({ geohash: acc.lastGeohash }).catch(
+						() => {},
+					);
+				} else {
+					const curr = preferencesSnapshot().geohash;
+					if (curr) {
+						acc.lastGeohash = curr;
+						acc.lastLocationName = getGeohashLocationLabel(curr);
+						this.saveToStorage();
+					}
+				}
+			}
+		}
 	}
 
 	openAccountDialog(channel?: SocialChannelType) {
@@ -257,6 +335,12 @@ export class ChannelState {
 					};
 				}
 			}
+			const savedGrindrGeohash = storage.getItem(
+				STORAGE_KEY_GRINDR_GEOHASH,
+			);
+			if (savedGrindrGeohash) {
+				this.grindrLastGeohash = savedGrindrGeohash;
+			}
 		} catch (e) {
 			console.warn("Failed to load channel state from storage:", e);
 		}
@@ -284,6 +368,12 @@ export class ChannelState {
 				STORAGE_KEY_ACTIVE_ACCOUNTS,
 				JSON.stringify(this.activeAccountIds),
 			);
+			if (this.grindrLastGeohash) {
+				storage.setItem(
+					STORAGE_KEY_GRINDR_GEOHASH,
+					this.grindrLastGeohash,
+				);
+			}
 		} catch (e) {
 			console.warn("Failed to save channel state to storage:", e);
 		}

@@ -7,6 +7,7 @@
 		preferencesSnapshot,
 		setPreferences,
 	} from "$lib/app-data/preferences.svelte";
+	import { channelState } from "$lib/channel/channel-state.svelte";
 	import {
 		findLocationInfo,
 		formatLocalTime,
@@ -39,6 +40,7 @@
 	}) {
 		try {
 			await setPreferences(submission);
+			channelState.recordCurrentLocation(submission.geohash);
 			geoMapPickerOpen = false;
 		} catch (error) {
 			console.error(error);

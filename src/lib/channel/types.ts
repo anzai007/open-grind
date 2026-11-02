@@ -147,4 +147,6 @@ export interface ChannelAccount {
 	isEnabled: boolean;
 	createdAt: number;
 	extraMeta?: Record<string, unknown>;
+	lastGeohash?: string; // 绑定的最后一次筛选定位点 (Geohash)
+	lastLocationName?: string; // 绑定的定位点城市或区域名称
 }

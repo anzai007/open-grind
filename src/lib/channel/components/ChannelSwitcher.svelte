@@ -2,20 +2,43 @@
 	import CaretDownIcon from "phosphor-svelte/lib/CaretDownIcon";
 	import CheckIcon from "phosphor-svelte/lib/CheckIcon";
 	import GearSixIcon from "phosphor-svelte/lib/GearSixIcon";
+	import PlusIcon from "phosphor-svelte/lib/PlusIcon";
+	import { toast } from "svelte-sonner";
 
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button } from "$lib/components/ui/button";
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 	import { channelState } from "../channel-state.svelte";
-	import { CHANNEL_METAS, type SocialChannelType } from "../types";
+	import {
+		CHANNEL_METAS,
+		type ChannelAccount,
+		type SocialChannelType,
+	} from "../types";
 
 	let { class: className }: { class?: import("svelte/elements").ClassValue } =
 		$props();
 
 	const currentMeta = $derived(channelState.currentMeta);
+	const currentAccount = $derived(channelState.currentAccount);
+	const activeChannel = $derived(channelState.activeChannel);
+	const currentChannelAccounts = $derived(
+		channelState.accounts[activeChannel] || [],
+	);
+	const activeAccountId = $derived(
+		channelState.activeAccountIds[activeChannel],
+	);
 
 	function handleSwitch(ch: SocialChannelType) {
 		channelState.switchChannel(ch);
+	}
+
+	function handleSwitchAccount(acc: ChannelAccount) {
+		channelState.setActiveAccount(activeChannel, acc.id);
+		toast.success(`已切换账号为: ${acc.name}`);
+	}
+
+	function handleOpenAddDialog() {
+		channelState.openAccountDialog(activeChannel);
 	}
 </script>
 
@@ -31,19 +54,26 @@
 					className,
 				]}
 				aria-label="切换社交渠道"
-				title="当前渠道: {currentMeta.name}"
+				title="当前渠道: {currentMeta.name}{currentAccount
+					? ` (${currentAccount.name})`
+					: ''}"
 			>
 				<span
 					class="size-2.5 shrink-0 rounded-full"
 					style:background-color={currentMeta.brandColor}
 				></span>
-				<span class="max-w-20 truncate">{currentMeta.shortName}</span>
+				<span class="max-w-28 truncate">
+					{currentMeta.shortName}{currentAccount &&
+					activeChannel !== "grindr"
+						? ` · ${currentAccount.name}`
+						: ""}
+				</span>
 				<CaretDownIcon class="size-3 text-muted-foreground" />
 			</Button>
 		{/snippet}
 	</DropdownMenu.Trigger>
 
-	<DropdownMenu.Content align="start" class="w-52 p-1.5 shadow-xl">
+	<DropdownMenu.Content align="start" class="w-60 p-1.5 shadow-xl">
 		<DropdownMenu.Group>
 			<DropdownMenu.GroupHeading
 				class="px-2 py-1 text-xs font-medium text-muted-foreground"
@@ -93,6 +123,62 @@
 				</DropdownMenu.Item>
 			{/each}
 		</DropdownMenu.Group>
+
+		{#if activeChannel !== "grindr"}
+			<DropdownMenu.Separator class="my-1" />
+
+			<DropdownMenu.Group>
+				<DropdownMenu.GroupHeading
+					class="px-2 py-1 text-xs font-medium text-muted-foreground"
+				>
+					{currentMeta.name} 账号切换
+				</DropdownMenu.GroupHeading>
+
+				{#each currentChannelAccounts as acc (acc.id)}
+					{@const isAccActive = acc.id === activeAccountId}
+					<DropdownMenu.Item
+						onSelect={() => handleSwitchAccount(acc)}
+						class="flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 hover:bg-accent"
+					>
+						<div class="flex min-w-0 flex-col">
+							<span
+								class={[
+									"truncate text-xs font-medium",
+									{
+										"font-semibold text-primary":
+											isAccActive,
+									},
+								]}
+							>
+								{acc.name}
+							</span>
+							<span
+								class="truncate text-[10px] text-muted-foreground"
+							>
+								{acc.accountIdentifier}{acc.lastLocationName
+									? ` · 📍 ${acc.lastLocationName}`
+									: ""}
+							</span>
+						</div>
+
+						{#if isAccActive}
+							<CheckIcon
+								class="size-3.5 shrink-0 text-primary"
+								weight="bold"
+							/>
+						{/if}
+					</DropdownMenu.Item>
+				{/each}
+
+				<DropdownMenu.Item
+					onSelect={handleOpenAddDialog}
+					class="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-primary hover:bg-accent"
+				>
+					<PlusIcon class="size-3.5" />
+					<span>添加新 {currentMeta.name} 账号</span>
+				</DropdownMenu.Item>
+			</DropdownMenu.Group>
+		{/if}
 
 		<DropdownMenu.Separator class="my-1" />
 

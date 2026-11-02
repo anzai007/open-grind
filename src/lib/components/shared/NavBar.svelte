@@ -4,9 +4,11 @@
 	import DotsNineIcon from "phosphor-svelte/lib/DotsNineIcon";
 	import DropIcon from "phosphor-svelte/lib/DropIcon";
 	import FireIcon from "phosphor-svelte/lib/FireIcon";
+	import UserIcon from "phosphor-svelte/lib/UserIcon";
 	import { untrack } from "svelte";
 
 	import { getProfile, onProfileEdit } from "$lib/api/users/profiles";
+	import { channelState } from "$lib/channel/channel-state.svelte";
 	import { getOrCreateConversationsState } from "$lib/chat/conversations-context.svelte";
 	import BrokenUserAvatar from "$lib/components/profile/BrokenUserAvatar.svelte";
 	import UserAvatar from "$lib/components/profile/UserAvatar.svelte";
@@ -42,6 +44,9 @@
 
 	const taps = untrack(() => getTapsState(ourProfileId));
 	const hasUnseenTaps = $derived(taps.hasUnseen);
+
+	const currentAccount = $derived(channelState.currentAccount);
+	const currentMeta = $derived(channelState.currentMeta);
 
 	function tabNavigation({
 		href,
@@ -139,7 +144,7 @@
 		aria-label="Me"
 		onclick={tabNavigation({ href: "/settings" })}
 		class={[
-			"flex size-14 shrink-0 rounded-full border bg-muted p-1 transition-colors motion-reduce:transition-none",
+			"relative flex size-14 shrink-0 rounded-full border bg-muted p-1 transition-colors motion-reduce:transition-none",
 			{
 				"border-2 border-accent":
 					page.route.id === "/(protected)/(navbar)/settings/(me)",
@@ -148,16 +153,47 @@
 			},
 		]}
 	>
-		{#await myProfilePhotos then photos}
-			{@const mainPhoto = photos[0] as { mediaHash: string } | undefined}
-			<UserAvatar
-				mediaHash={mainPhoto?.mediaHash ?? null}
-				class="size-full *:rounded-full"
-				size="lg"
-			/>
-		{:catch}
-			<BrokenUserAvatar />
-		{/await}
+		{#if channelState.activeChannel === "grindr"}
+			{#await myProfilePhotos then photos}
+				{@const mainPhoto = photos[0] as
+					| { mediaHash: string }
+					| undefined}
+				<UserAvatar
+					mediaHash={mainPhoto?.mediaHash ?? null}
+					class="size-full *:rounded-full"
+					size="lg"
+				/>
+			{:catch}
+				<BrokenUserAvatar />
+			{/await}
+		{:else}
+			{#if currentAccount?.avatarUrl}
+				<img
+					src={currentAccount.avatarUrl}
+					alt={currentAccount.name}
+					class="size-full rounded-full object-cover"
+				/>
+			{:else if currentAccount}
+				<div
+					class="flex size-full items-center justify-center rounded-full text-xs font-bold text-white shadow-xs"
+					style:background-color={currentMeta.brandColor}
+				>
+					{currentAccount.name.slice(0, 2).toUpperCase()}
+				</div>
+			{:else}
+				<div
+					class="flex size-full items-center justify-center rounded-full bg-muted text-muted-foreground"
+				>
+					<UserIcon class="size-6" />
+				</div>
+			{/if}
+			<span
+				class="absolute -right-0.5 -bottom-0.5 flex size-4 items-center justify-center rounded-full border-2 border-background text-[9px] font-bold text-white shadow-xs"
+				style:background-color={currentMeta.brandColor}
+			>
+				{currentMeta.shortName.slice(0, 1)}
+			</span>
+		{/if}
 	</a>
 </ProgressiveBlur>
 

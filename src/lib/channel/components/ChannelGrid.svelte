@@ -29,6 +29,7 @@
 			return;
 		lastLoadedGeohash = geohash;
 		lastLoadedChannel = channel;
+		channelState.recordCurrentLocation(geohash);
 		try {
 			const { lat, lon } = decodeGeohash(geohash);
 			void channelGridState.load(lat, lon);

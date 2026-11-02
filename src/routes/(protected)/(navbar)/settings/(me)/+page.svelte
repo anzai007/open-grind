@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { version } from "$app/environment";
 
+	import { channelState } from "$lib/channel/channel-state.svelte";
 	import AccountSettingsLink from "./AccountSettingsLink.svelte";
 	import AlbumsLink from "./AlbumsLink.svelte";
 	import AppSettingsLink from "./AppSettingsLink.svelte";
+	import ChannelAccountSwitcherSection from "./ChannelAccountSwitcherSection.svelte";
 	import ChannelSettingsLink from "./ChannelSettingsLink.svelte";
 	import ProfileLink from "./ProfileLink.svelte";
 	import SignOutButton from "./SignOutButton.svelte";
@@ -20,10 +22,16 @@
 		<div class="flex w-full p-4 pb-nav-clear">
 			<div class="m-auto flex w-full max-w-120 flex-col gap-3">
 				<ProfileLink id={data.ourProfileId} />
-				<AlbumsLink ourProfileId={data.ourProfileId} />
+				{#if channelState.activeChannel === "grindr"}
+					<AlbumsLink ourProfileId={data.ourProfileId} />
+				{:else}
+					<ChannelAccountSwitcherSection />
+				{/if}
 				<span role="separator"></span>
 				<ChannelSettingsLink />
-				<AccountSettingsLink />
+				{#if channelState.activeChannel === "grindr"}
+					<AccountSettingsLink />
+				{/if}
 				<AppSettingsLink />
 				<SignOutButton />
 				<span role="separator"></span>
