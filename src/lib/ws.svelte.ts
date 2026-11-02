@@ -9,6 +9,7 @@ import { mediaHashPublicSchema } from "$lib/model/media";
 import { apiResponseMessageSchema } from "$lib/model/messaging/messages";
 import { knownValueOrNull } from "$lib/model/tolerance";
 import { unixTimestampMsSchema, unmodeledSchema } from "$lib/model/types";
+import { networkLoggerState } from "$lib/network-logger/network-logger-state.svelte";
 
 export const notificationEventSchema = z.object({
 	type: z.string(),
@@ -149,6 +150,12 @@ class WsState {
 	}
 
 	send(type: string, payload: unknown): void {
+		networkLoggerState.addWs({
+			direction: "sent",
+			type,
+			payload,
+			timestamp: Date.now(),
+		});
 		invoke("ws_send", {
 			command: { type, ref_id: crypto.randomUUID(), payload },
 		}).catch((e: unknown) => {
@@ -168,6 +175,13 @@ class WsState {
 		timeoutMs?: number;
 	}): Promise<T> {
 		const ref_id = crypto.randomUUID();
+		networkLoggerState.addWs({
+			direction: "sent",
+			type,
+			payload,
+			ref: ref_id,
+			timestamp: Date.now(),
+		});
 
 		return new Promise<T>((resolve, reject) => {
 			let unlisten: (() => void) | undefined;

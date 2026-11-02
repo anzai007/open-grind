@@ -1,0 +1,2084 @@
+[
+	{
+		"code": "CN",
+		"name": "中国",
+		"nameEn": "China",
+		"aliases": ["zhongguo", "prc", "china"],
+		"flag": "🇨🇳",
+		"center": { "lat": 35.8617, "lon": 104.1954, "zoom": 5 },
+		"cities": [
+			{
+				"name": "北京",
+				"nameEn": "Beijing",
+				"aliases": ["beijing", "bj", "peking"],
+				"lat": 39.9042,
+				"lon": 116.4074,
+				"zoom": 12
+			},
+			{
+				"name": "上海",
+				"nameEn": "Shanghai",
+				"aliases": ["shanghai", "sh"],
+				"lat": 31.2304,
+				"lon": 121.4737,
+				"zoom": 12
+			},
+			{
+				"name": "广州",
+				"nameEn": "Guangzhou",
+				"aliases": ["guangzhou", "gz", "canton"],
+				"lat": 23.1291,
+				"lon": 113.2644,
+				"zoom": 12
+			},
+			{
+				"name": "深圳",
+				"nameEn": "Shenzhen",
+				"aliases": ["shenzhen", "sz"],
+				"lat": 22.5431,
+				"lon": 114.0579,
+				"zoom": 12
+			},
+			{
+				"name": "成都",
+				"nameEn": "Chengdu",
+				"aliases": ["chengdu", "cd"],
+				"lat": 30.5728,
+				"lon": 104.0668,
+				"zoom": 12
+			},
+			{
+				"name": "重庆",
+				"nameEn": "Chongqing",
+				"aliases": ["chongqing", "cq"],
+				"lat": 29.563,
+				"lon": 106.5516,
+				"zoom": 12
+			},
+			{
+				"name": "杭州",
+				"nameEn": "Hangzhou",
+				"aliases": ["hangzhou", "hz"],
+				"lat": 30.2741,
+				"lon": 120.1551,
+				"zoom": 12
+			},
+			{
+				"name": "武汉",
+				"nameEn": "Wuhan",
+				"aliases": ["wuhan", "wh"],
+				"lat": 30.5928,
+				"lon": 114.3055,
+				"zoom": 12
+			},
+			{
+				"name": "西安",
+				"nameEn": "Xi'an",
+				"aliases": ["xian", "xa"],
+				"lat": 34.3416,
+				"lon": 108.9398,
+				"zoom": 12
+			},
+			{
+				"name": "南京",
+				"nameEn": "Nanjing",
+				"aliases": ["nanjing", "nj"],
+				"lat": 32.0603,
+				"lon": 118.7969,
+				"zoom": 12
+			},
+			{
+				"name": "长沙",
+				"nameEn": "Changsha",
+				"aliases": ["changsha", "cs"],
+				"lat": 28.2282,
+				"lon": 112.9388,
+				"zoom": 12
+			},
+			{
+				"name": "天津",
+				"nameEn": "Tianjin",
+				"aliases": ["tianjin", "tj"],
+				"lat": 39.0842,
+				"lon": 117.2009,
+				"zoom": 12
+			},
+			{
+				"name": "苏州",
+				"nameEn": "Suzhou",
+				"aliases": ["suzhou"],
+				"lat": 31.2989,
+				"lon": 120.5853,
+				"zoom": 12
+			},
+			{
+				"name": "厦门",
+				"nameEn": "Xiamen",
+				"aliases": ["xiamen", "amoy"],
+				"lat": 24.4798,
+				"lon": 118.0894,
+				"zoom": 12
+			},
+			{
+				"name": "青岛",
+				"nameEn": "Qingdao",
+				"aliases": ["qingdao", "tsingtao"],
+				"lat": 36.0671,
+				"lon": 120.3826,
+				"zoom": 12
+			},
+			{
+				"name": "香港",
+				"nameEn": "Hong Kong",
+				"aliases": ["hongkong", "hk", "xianggang"],
+				"lat": 22.3193,
+				"lon": 114.1694,
+				"zoom": 13
+			},
+			{
+				"name": "台北",
+				"nameEn": "Taipei",
+				"aliases": ["taipei", "taibei"],
+				"lat": 25.033,
+				"lon": 121.5654,
+				"zoom": 12
+			},
+			{
+				"name": "高雄",
+				"nameEn": "Kaohsiung",
+				"aliases": ["kaohsiung", "gaoxiong"],
+				"lat": 22.6273,
+				"lon": 120.3014,
+				"zoom": 12
+			},
+			{
+				"name": "台中",
+				"nameEn": "Taichung",
+				"aliases": ["taichung", "taizhong"],
+				"lat": 24.1477,
+				"lon": 120.6736,
+				"zoom": 12
+			},
+			{
+				"name": "澳门",
+				"nameEn": "Macau",
+				"aliases": ["macau", "macao", "aomen"],
+				"lat": 22.1987,
+				"lon": 113.5439,
+				"zoom": 13
+			}
+		]
+	},
+	{
+		"code": "IN",
+		"name": "印度",
+		"nameEn": "India",
+		"aliases": ["yindu", "india", "bharat", "in"],
+		"flag": "🇮🇳",
+		"center": { "lat": 20.5937, "lon": 78.9629, "zoom": 5 },
+		"cities": [
+			{
+				"name": "新德里 / 德里",
+				"nameEn": "New Delhi / Delhi",
+				"aliases": ["new delhi", "delhi", "xindeli", "deli"],
+				"lat": 28.6139,
+				"lon": 77.209,
+				"zoom": 12
+			},
+			{
+				"name": "孟买",
+				"nameEn": "Mumbai",
+				"aliases": ["mumbai", "bombay", "mengmai"],
+				"lat": 19.076,
+				"lon": 72.8777,
+				"zoom": 12
+			},
+			{
+				"name": "班加罗尔",
+				"nameEn": "Bengaluru / Bangalore",
+				"aliases": ["bengaluru", "bangalore", "bangjialuoer"],
+				"lat": 12.9716,
+				"lon": 77.5946,
+				"zoom": 12
+			},
+			{
+				"name": "加尔各答",
+				"nameEn": "Kolkata / Calcutta",
+				"aliases": ["kolkata", "calcutta", "jiaergada"],
+				"lat": 22.5726,
+				"lon": 88.3639,
+				"zoom": 12
+			},
+			{
+				"name": "金奈",
+				"nameEn": "Chennai / Madras",
+				"aliases": ["chennai", "madras", "jinnai"],
+				"lat": 13.0827,
+				"lon": 80.2707,
+				"zoom": 12
+			},
+			{
+				"name": "海得拉巴",
+				"nameEn": "Hyderabad",
+				"aliases": ["hyderabad", "haidelaba"],
+				"lat": 17.385,
+				"lon": 78.4867,
+				"zoom": 12
+			},
+			{
+				"name": "果阿",
+				"nameEn": "Goa",
+				"aliases": ["goa", "panaji", "guo'a"],
+				"lat": 15.2993,
+				"lon": 74.124,
+				"zoom": 11
+			},
+			{
+				"name": "浦那",
+				"nameEn": "Pune",
+				"aliases": ["pune", "puna"],
+				"lat": 18.5204,
+				"lon": 73.8567,
+				"zoom": 12
+			},
+			{
+				"name": "斋浦尔",
+				"nameEn": "Jaipur",
+				"aliases": ["jaipur", "zhaipuer"],
+				"lat": 26.9124,
+				"lon": 75.7873,
+				"zoom": 12
+			},
+			{
+				"name": "艾哈迈达巴德",
+				"nameEn": "Ahmedabad",
+				"aliases": ["ahmedabad", "aihamai"],
+				"lat": 23.0225,
+				"lon": 72.5714,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "TH",
+		"name": "泰国",
+		"nameEn": "Thailand",
+		"aliases": ["taiguo", "thailand", "siam", "th"],
+		"flag": "🇹🇭",
+		"center": { "lat": 15.87, "lon": 100.9925, "zoom": 6 },
+		"cities": [
+			{
+				"name": "曼谷",
+				"nameEn": "Bangkok",
+				"aliases": ["bangkok", "mangu"],
+				"lat": 13.7563,
+				"lon": 100.5018,
+				"zoom": 12
+			},
+			{
+				"name": "清迈",
+				"nameEn": "Chiang Mai",
+				"aliases": ["chiang mai", "qingmai"],
+				"lat": 18.7883,
+				"lon": 98.9853,
+				"zoom": 12
+			},
+			{
+				"name": "普吉岛",
+				"nameEn": "Phuket",
+				"aliases": ["phuket", "pujidao"],
+				"lat": 7.8804,
+				"lon": 98.3923,
+				"zoom": 12
+			},
+			{
+				"name": "芭提雅",
+				"nameEn": "Pattaya",
+				"aliases": ["pattaya", "batiya"],
+				"lat": 12.9276,
+				"lon": 100.8771,
+				"zoom": 12
+			},
+			{
+				"name": "苏梅岛",
+				"nameEn": "Koh Samui",
+				"aliases": ["koh samui", "sumeidao"],
+				"lat": 9.512,
+				"lon": 100.0136,
+				"zoom": 12
+			},
+			{
+				"name": "华欣",
+				"nameEn": "Hua Hin",
+				"aliases": ["hua hin", "huaxin"],
+				"lat": 12.5684,
+				"lon": 99.9577,
+				"zoom": 12
+			},
+			{
+				"name": "甲米",
+				"nameEn": "Krabi",
+				"aliases": ["krabi", "jiami"],
+				"lat": 8.0863,
+				"lon": 98.9063,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "JP",
+		"name": "日本",
+		"nameEn": "Japan",
+		"aliases": ["riben", "japan", "nippon", "jp"],
+		"flag": "🇯🇵",
+		"center": { "lat": 36.2048, "lon": 138.2529, "zoom": 6 },
+		"cities": [
+			{
+				"name": "东京",
+				"nameEn": "Tokyo",
+				"aliases": ["tokyo", "dongjing"],
+				"lat": 35.6762,
+				"lon": 139.6503,
+				"zoom": 12
+			},
+			{
+				"name": "大阪",
+				"nameEn": "Osaka",
+				"aliases": ["osaka", "daban"],
+				"lat": 34.6937,
+				"lon": 135.5023,
+				"zoom": 12
+			},
+			{
+				"name": "京都",
+				"nameEn": "Kyoto",
+				"aliases": ["kyoto", "jingdu"],
+				"lat": 35.0116,
+				"lon": 135.7681,
+				"zoom": 12
+			},
+			{
+				"name": "名古屋",
+				"nameEn": "Nagoya",
+				"aliases": ["nagoya", "mingguwu"],
+				"lat": 35.1815,
+				"lon": 136.9066,
+				"zoom": 12
+			},
+			{
+				"name": "福冈",
+				"nameEn": "Fukuoka",
+				"aliases": ["fukuoka", "fuguang"],
+				"lat": 33.5904,
+				"lon": 130.4017,
+				"zoom": 12
+			},
+			{
+				"name": "札幌",
+				"nameEn": "Sapporo",
+				"aliases": ["sapporo", "zhahuang"],
+				"lat": 43.0618,
+				"lon": 141.3545,
+				"zoom": 12
+			},
+			{
+				"name": "横滨",
+				"nameEn": "Yokohama",
+				"aliases": ["yokohama", "hengbing"],
+				"lat": 35.4437,
+				"lon": 139.638,
+				"zoom": 12
+			},
+			{
+				"name": "神户",
+				"nameEn": "Kobe",
+				"aliases": ["kobe", "shenhu"],
+				"lat": 34.6901,
+				"lon": 135.1955,
+				"zoom": 12
+			},
+			{
+				"name": "冲绳那霸",
+				"nameEn": "Naha / Okinawa",
+				"aliases": ["naha", "okinawa", "chongsheng"],
+				"lat": 26.2124,
+				"lon": 127.6809,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "KR",
+		"name": "韩国",
+		"nameEn": "South Korea",
+		"aliases": ["hanguo", "korea", "south korea", "kr"],
+		"flag": "🇰🇷",
+		"center": { "lat": 35.9078, "lon": 127.7669, "zoom": 7 },
+		"cities": [
+			{
+				"name": "首尔",
+				"nameEn": "Seoul",
+				"aliases": ["seoul", "shou'er", "hanseong"],
+				"lat": 37.5665,
+				"lon": 126.978,
+				"zoom": 12
+			},
+			{
+				"name": "釜山",
+				"nameEn": "Busan",
+				"aliases": ["busan", "fushan"],
+				"lat": 35.1796,
+				"lon": 129.0756,
+				"zoom": 12
+			},
+			{
+				"name": "仁川",
+				"nameEn": "Incheon",
+				"aliases": ["incheon", "renchuan"],
+				"lat": 37.4563,
+				"lon": 126.7052,
+				"zoom": 12
+			},
+			{
+				"name": "济州岛",
+				"nameEn": "Jeju",
+				"aliases": ["jeju", "jizhou"],
+				"lat": 33.4996,
+				"lon": 126.5312,
+				"zoom": 12
+			},
+			{
+				"name": "大邱",
+				"nameEn": "Daegu",
+				"aliases": ["daegu", "daqiu"],
+				"lat": 35.8714,
+				"lon": 128.6014,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "SG",
+		"name": "新加坡",
+		"nameEn": "Singapore",
+		"aliases": ["xinjiapo", "singapore", "sg"],
+		"flag": "🇸🇬",
+		"center": { "lat": 1.3521, "lon": 103.8198, "zoom": 12 },
+		"cities": [
+			{
+				"name": "新加坡全岛",
+				"nameEn": "Singapore City",
+				"aliases": ["singapore"],
+				"lat": 1.3521,
+				"lon": 103.8198,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "MY",
+		"name": "马来西亚",
+		"nameEn": "Malaysia",
+		"aliases": ["malaixiya", "malaysia", "my"],
+		"flag": "🇲🇾",
+		"center": { "lat": 4.2105, "lon": 101.9758, "zoom": 6 },
+		"cities": [
+			{
+				"name": "吉隆坡",
+				"nameEn": "Kuala Lumpur",
+				"aliases": ["kuala lumpur", "kl", "jilongpo"],
+				"lat": 3.139,
+				"lon": 101.6869,
+				"zoom": 12
+			},
+			{
+				"name": "槟城 / 乔治市",
+				"nameEn": "Penang / George Town",
+				"aliases": ["penang", "bincheng"],
+				"lat": 5.4164,
+				"lon": 100.3327,
+				"zoom": 12
+			},
+			{
+				"name": "新山",
+				"nameEn": "Johor Bahru",
+				"aliases": ["johor bahru", "jb", "xinshan"],
+				"lat": 1.4927,
+				"lon": 103.7414,
+				"zoom": 12
+			},
+			{
+				"name": "亚庇 / 沙巴",
+				"nameEn": "Kota Kinabalu",
+				"aliases": ["kota kinabalu", "kk", "yabi", "shaba"],
+				"lat": 5.9804,
+				"lon": 116.0735,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "VN",
+		"name": "越南",
+		"nameEn": "Vietnam",
+		"aliases": ["yuenan", "vietnam", "vn"],
+		"flag": "🇻🇳",
+		"center": { "lat": 14.0583, "lon": 108.2772, "zoom": 6 },
+		"cities": [
+			{
+				"name": "胡志明市",
+				"nameEn": "Ho Chi Minh City",
+				"aliases": ["ho chi minh", "saigon", "huzhiming"],
+				"lat": 10.8231,
+				"lon": 106.6297,
+				"zoom": 12
+			},
+			{
+				"name": "河内",
+				"nameEn": "Hanoi",
+				"aliases": ["hanoi", "henei"],
+				"lat": 21.0285,
+				"lon": 105.8542,
+				"zoom": 12
+			},
+			{
+				"name": "岘港",
+				"nameEn": "Da Nang",
+				"aliases": ["da nang", "xiangang"],
+				"lat": 16.0544,
+				"lon": 108.2022,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "PH",
+		"name": "菲律宾",
+		"nameEn": "Philippines",
+		"aliases": ["feilubin", "philippines", "ph"],
+		"flag": "🇵🇭",
+		"center": { "lat": 12.8797, "lon": 121.774, "zoom": 6 },
+		"cities": [
+			{
+				"name": "马尼拉",
+				"nameEn": "Manila",
+				"aliases": ["manila", "manila city", "manila"],
+				"lat": 14.5995,
+				"lon": 120.9842,
+				"zoom": 12
+			},
+			{
+				"name": "宿务",
+				"nameEn": "Cebu",
+				"aliases": ["cebu", "suwu"],
+				"lat": 10.3157,
+				"lon": 123.8854,
+				"zoom": 12
+			},
+			{
+				"name": "长滩岛",
+				"nameEn": "Boracay",
+				"aliases": ["boracay", "changtandao"],
+				"lat": 11.9674,
+				"lon": 121.9248,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "ID",
+		"name": "印度尼西亚",
+		"nameEn": "Indonesia",
+		"aliases": ["yindunixiya", "yinni", "indonesia", "id"],
+		"flag": "🇮🇩",
+		"center": { "lat": -0.7893, "lon": 113.9213, "zoom": 5 },
+		"cities": [
+			{
+				"name": "巴厘岛",
+				"nameEn": "Bali",
+				"aliases": ["bali", "denpasar", "balidao"],
+				"lat": -8.3405,
+				"lon": 115.092,
+				"zoom": 11
+			},
+			{
+				"name": "雅加达",
+				"nameEn": "Jakarta",
+				"aliases": ["jakarta", "yajiada"],
+				"lat": -6.2088,
+				"lon": 106.8456,
+				"zoom": 12
+			},
+			{
+				"name": "泗水",
+				"nameEn": "Surabaya",
+				"aliases": ["surabaya", "sishui"],
+				"lat": -7.2575,
+				"lon": 112.7521,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "KH",
+		"name": "柬埔寨",
+		"nameEn": "Cambodia",
+		"aliases": ["jianpuzhai", "cambodia", "kh"],
+		"flag": "🇰🇭",
+		"center": { "lat": 12.5657, "lon": 104.991, "zoom": 7 },
+		"cities": [
+			{
+				"name": "金边",
+				"nameEn": "Phnom Penh",
+				"aliases": ["phnom penh", "jinbian"],
+				"lat": 11.5564,
+				"lon": 104.9282,
+				"zoom": 12
+			},
+			{
+				"name": "暹粒 / 吴哥",
+				"nameEn": "Siem Reap",
+				"aliases": ["siem reap", "angkor", "xianli"],
+				"lat": 13.3671,
+				"lon": 103.8448,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "MM",
+		"name": "缅甸",
+		"nameEn": "Myanmar",
+		"aliases": ["miandian", "myanmar", "burma", "mm"],
+		"flag": "🇲🇲",
+		"center": { "lat": 21.9162, "lon": 95.956, "zoom": 6 },
+		"cities": [
+			{
+				"name": "仰光",
+				"nameEn": "Yangon",
+				"aliases": ["yangon", "rangoon", "yangguang"],
+				"lat": 16.8661,
+				"lon": 96.1951,
+				"zoom": 12
+			},
+			{
+				"name": "曼德勒",
+				"nameEn": "Mandalay",
+				"aliases": ["mandalay", "mandele"],
+				"lat": 21.9588,
+				"lon": 96.0891,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "NP",
+		"name": "尼泊尔",
+		"nameEn": "Nepal",
+		"aliases": ["niboer", "nepal", "np"],
+		"flag": "🇳🇵",
+		"center": { "lat": 28.3949, "lon": 84.124, "zoom": 7 },
+		"cities": [
+			{
+				"name": "加德满都",
+				"nameEn": "Kathmandu",
+				"aliases": ["kathmandu", "jiademandu"],
+				"lat": 27.7172,
+				"lon": 85.324,
+				"zoom": 12
+			},
+			{
+				"name": "博卡拉",
+				"nameEn": "Pokhara",
+				"aliases": ["pokhara", "bokala"],
+				"lat": 28.2096,
+				"lon": 83.9856,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "LK",
+		"name": "斯里兰卡",
+		"nameEn": "Sri Lanka",
+		"aliases": ["sililanka", "sri lanka", "lk"],
+		"flag": "🇱🇰",
+		"center": { "lat": 7.8731, "lon": 80.7718, "zoom": 8 },
+		"cities": [
+			{
+				"name": "科伦坡",
+				"nameEn": "Colombo",
+				"aliases": ["colombo", "kelunpo"],
+				"lat": 6.9271,
+				"lon": 79.8612,
+				"zoom": 12
+			},
+			{
+				"name": "康提",
+				"nameEn": "Kandy",
+				"aliases": ["kandy", "kangti"],
+				"lat": 7.2906,
+				"lon": 80.6337,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "PK",
+		"name": "巴基斯坦",
+		"nameEn": "Pakistan",
+		"aliases": ["bajisitan", "pakistan", "pk"],
+		"flag": "🇵🇰",
+		"center": { "lat": 30.3753, "lon": 69.3451, "zoom": 5 },
+		"cities": [
+			{
+				"name": "伊斯兰堡",
+				"nameEn": "Islamabad",
+				"aliases": ["islamabad", "yisilanbao"],
+				"lat": 33.6844,
+				"lon": 73.0479,
+				"zoom": 12
+			},
+			{
+				"name": "卡拉奇",
+				"nameEn": "Karachi",
+				"aliases": ["karachi", "kalaqi"],
+				"lat": 24.8607,
+				"lon": 67.0011,
+				"zoom": 12
+			},
+			{
+				"name": "拉合尔",
+				"nameEn": "Lahore",
+				"aliases": ["lahore", "lahe'er"],
+				"lat": 31.5204,
+				"lon": 74.3587,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "KZ",
+		"name": "哈萨克斯坦",
+		"nameEn": "Kazakhstan",
+		"aliases": ["hasakesitan", "kazakhstan", "kz"],
+		"flag": "🇰🇿",
+		"center": { "lat": 48.0196, "lon": 66.9237, "zoom": 5 },
+		"cities": [
+			{
+				"name": "阿拉木图",
+				"nameEn": "Almaty",
+				"aliases": ["almaty", "alamutu"],
+				"lat": 43.222,
+				"lon": 76.8512,
+				"zoom": 12
+			},
+			{
+				"name": "阿斯塔纳",
+				"nameEn": "Astana / Nur-Sultan",
+				"aliases": ["astana", "asitana"],
+				"lat": 51.1694,
+				"lon": 71.4491,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "AE",
+		"name": "阿联酋",
+		"nameEn": "United Arab Emirates",
+		"aliases": ["alianqiu", "uae", "dubai", "emirates", "ae"],
+		"flag": "🇦🇪",
+		"center": { "lat": 23.4241, "lon": 53.8478, "zoom": 7 },
+		"cities": [
+			{
+				"name": "迪拜",
+				"nameEn": "Dubai",
+				"aliases": ["dubai", "dibai"],
+				"lat": 25.2048,
+				"lon": 55.2708,
+				"zoom": 12
+			},
+			{
+				"name": "阿布扎比",
+				"nameEn": "Abu Dhabi",
+				"aliases": ["abu dhabi", "abuzhabi"],
+				"lat": 24.4539,
+				"lon": 54.3773,
+				"zoom": 12
+			},
+			{
+				"name": "沙迦",
+				"nameEn": "Sharjah",
+				"aliases": ["sharjah", "shajia"],
+				"lat": 25.3463,
+				"lon": 55.4209,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "SA",
+		"name": "沙特阿拉伯",
+		"nameEn": "Saudi Arabia",
+		"aliases": ["shate", "saudi arabia", "saudi", "sa"],
+		"flag": "🇸🇦",
+		"center": { "lat": 23.8859, "lon": 45.0792, "zoom": 5 },
+		"cities": [
+			{
+				"name": "利雅得",
+				"nameEn": "Riyadh",
+				"aliases": ["riyadh", "liyade"],
+				"lat": 24.7136,
+				"lon": 46.6753,
+				"zoom": 12
+			},
+			{
+				"name": "吉达",
+				"nameEn": "Jeddah",
+				"aliases": ["jeddah", "jida"],
+				"lat": 21.4858,
+				"lon": 39.1925,
+				"zoom": 12
+			},
+			{
+				"name": "达曼",
+				"nameEn": "Dammam",
+				"aliases": ["dammam", "daman"],
+				"lat": 26.4207,
+				"lon": 50.0888,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "TR",
+		"name": "土耳其",
+		"nameEn": "Turkey",
+		"aliases": ["tuerqi", "turkey", "turkiye", "tr"],
+		"flag": "🇹🇷",
+		"center": { "lat": 38.9637, "lon": 35.2433, "zoom": 6 },
+		"cities": [
+			{
+				"name": "伊斯坦布尔",
+				"nameEn": "Istanbul",
+				"aliases": ["istanbul", "yisitanbuer"],
+				"lat": 41.0082,
+				"lon": 28.9784,
+				"zoom": 12
+			},
+			{
+				"name": "安卡拉",
+				"nameEn": "Ankara",
+				"aliases": ["ankara", "ankala"],
+				"lat": 39.9334,
+				"lon": 32.8597,
+				"zoom": 12
+			},
+			{
+				"name": "安塔利亚",
+				"nameEn": "Antalya",
+				"aliases": ["antalya", "antaliya"],
+				"lat": 36.8969,
+				"lon": 30.7133,
+				"zoom": 12
+			},
+			{
+				"name": "伊兹密尔",
+				"nameEn": "Izmir",
+				"aliases": ["izmir", "yizimier"],
+				"lat": 38.4237,
+				"lon": 27.1428,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "IL",
+		"name": "以色列",
+		"nameEn": "Israel",
+		"aliases": ["yiselie", "israel", "il"],
+		"flag": "🇮🇱",
+		"center": { "lat": 31.0461, "lon": 34.8516, "zoom": 8 },
+		"cities": [
+			{
+				"name": "特拉维夫",
+				"nameEn": "Tel Aviv",
+				"aliases": ["tel aviv", "telaweifu"],
+				"lat": 32.0853,
+				"lon": 34.7818,
+				"zoom": 12
+			},
+			{
+				"name": "耶路撒冷",
+				"nameEn": "Jerusalem",
+				"aliases": ["jerusalem", "yelusaleng"],
+				"lat": 31.7683,
+				"lon": 35.2137,
+				"zoom": 12
+			},
+			{
+				"name": "海法",
+				"nameEn": "Haifa",
+				"aliases": ["haifa", "haifa"],
+				"lat": 32.794,
+				"lon": 34.9896,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "QA",
+		"name": "卡塔尔",
+		"nameEn": "Qatar",
+		"aliases": ["kata'er", "qatar", "qa"],
+		"flag": "🇶🇦",
+		"center": { "lat": 25.3548, "lon": 51.1839, "zoom": 9 },
+		"cities": [
+			{
+				"name": "多哈",
+				"nameEn": "Doha",
+				"aliases": ["doha", "duoha"],
+				"lat": 25.2854,
+				"lon": 51.531,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "GB",
+		"name": "英国",
+		"nameEn": "United Kingdom",
+		"aliases": ["yingguo", "uk", "great britain", "england", "gb"],
+		"flag": "🇬🇧",
+		"center": { "lat": 55.3781, "lon": -3.436, "zoom": 6 },
+		"cities": [
+			{
+				"name": "伦敦",
+				"nameEn": "London",
+				"aliases": ["london", "lundun"],
+				"lat": 51.5074,
+				"lon": -0.1278,
+				"zoom": 12
+			},
+			{
+				"name": "曼彻斯特",
+				"nameEn": "Manchester",
+				"aliases": ["manchester", "manchesete"],
+				"lat": 53.4808,
+				"lon": -2.2426,
+				"zoom": 12
+			},
+			{
+				"name": "爱丁堡",
+				"nameEn": "Edinburgh",
+				"aliases": ["edinburgh", "aidingbao"],
+				"lat": 55.9533,
+				"lon": -3.1883,
+				"zoom": 12
+			},
+			{
+				"name": "伯明翰",
+				"nameEn": "Birmingham",
+				"aliases": ["birmingham", "bominghan"],
+				"lat": 52.4862,
+				"lon": -1.8904,
+				"zoom": 12
+			},
+			{
+				"name": "布莱顿",
+				"nameEn": "Brighton",
+				"aliases": ["brighton", "bulaidun"],
+				"lat": 50.8225,
+				"lon": -0.1372,
+				"zoom": 12
+			},
+			{
+				"name": "利物浦",
+				"nameEn": "Liverpool",
+				"aliases": ["liverpool", "liwupu"],
+				"lat": 53.4084,
+				"lon": -2.9916,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "FR",
+		"name": "法国",
+		"nameEn": "France",
+		"aliases": ["faguo", "france", "fr"],
+		"flag": "🇫🇷",
+		"center": { "lat": 46.2276, "lon": 2.2137, "zoom": 6 },
+		"cities": [
+			{
+				"name": "巴黎",
+				"nameEn": "Paris",
+				"aliases": ["paris", "bali"],
+				"lat": 48.8566,
+				"lon": 2.3522,
+				"zoom": 12
+			},
+			{
+				"name": "尼斯",
+				"nameEn": "Nice",
+				"aliases": ["nice", "nisi"],
+				"lat": 43.7102,
+				"lon": 7.262,
+				"zoom": 12
+			},
+			{
+				"name": "里昂",
+				"nameEn": "Lyon",
+				"aliases": ["lyon", "li'ang"],
+				"lat": 45.764,
+				"lon": 4.8357,
+				"zoom": 12
+			},
+			{
+				"name": "马赛",
+				"nameEn": "Marseille",
+				"aliases": ["marseille", "masai"],
+				"lat": 43.2965,
+				"lon": 5.3698,
+				"zoom": 12
+			},
+			{
+				"name": "波尔多",
+				"nameEn": "Bordeaux",
+				"aliases": ["bordeaux", "bo'erduo"],
+				"lat": 44.8378,
+				"lon": -0.5792,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "DE",
+		"name": "德国",
+		"nameEn": "Germany",
+		"aliases": ["deguo", "germany", "deutschland", "de"],
+		"flag": "🇩🇪",
+		"center": { "lat": 51.1657, "lon": 10.4515, "zoom": 6 },
+		"cities": [
+			{
+				"name": "柏林",
+				"nameEn": "Berlin",
+				"aliases": ["berlin", "bolin"],
+				"lat": 52.52,
+				"lon": 13.405,
+				"zoom": 12
+			},
+			{
+				"name": "慕尼黑",
+				"nameEn": "Munich",
+				"aliases": ["munich", "munchen", "munihei"],
+				"lat": 48.1351,
+				"lon": 11.582,
+				"zoom": 12
+			},
+			{
+				"name": "法兰克福",
+				"nameEn": "Frankfurt",
+				"aliases": ["frankfurt", "falankefu"],
+				"lat": 50.1109,
+				"lon": 8.6821,
+				"zoom": 12
+			},
+			{
+				"name": "科隆",
+				"nameEn": "Cologne",
+				"aliases": ["cologne", "koln", "kelong"],
+				"lat": 50.9375,
+				"lon": 6.9603,
+				"zoom": 12
+			},
+			{
+				"name": "汉堡",
+				"nameEn": "Hamburg",
+				"aliases": ["hamburg", "hanbao"],
+				"lat": 53.5511,
+				"lon": 9.9937,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "ES",
+		"name": "西班牙",
+		"nameEn": "Spain",
+		"aliases": ["xibanya", "spain", "espana", "es"],
+		"flag": "🇪🇸",
+		"center": { "lat": 40.4637, "lon": -3.7492, "zoom": 6 },
+		"cities": [
+			{
+				"name": "马德里",
+				"nameEn": "Madrid",
+				"aliases": ["madrid", "madeli"],
+				"lat": 40.4168,
+				"lon": -3.7038,
+				"zoom": 12
+			},
+			{
+				"name": "巴塞罗那",
+				"nameEn": "Barcelona",
+				"aliases": ["barcelona", "basailuona", "bcn"],
+				"lat": 41.3851,
+				"lon": 2.1734,
+				"zoom": 12
+			},
+			{
+				"name": "锡切斯",
+				"nameEn": "Sitges",
+				"aliases": ["sitges", "xiqiesi"],
+				"lat": 41.2372,
+				"lon": 1.8105,
+				"zoom": 13
+			},
+			{
+				"name": "瓦伦西亚",
+				"nameEn": "Valencia",
+				"aliases": ["valencia", "walunxiya"],
+				"lat": 39.4699,
+				"lon": -0.3763,
+				"zoom": 12
+			},
+			{
+				"name": "塞维利亚",
+				"nameEn": "Seville",
+				"aliases": ["seville", "sevilla", "saiweiliya"],
+				"lat": 37.3891,
+				"lon": -5.9845,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "IT",
+		"name": "意大利",
+		"nameEn": "Italy",
+		"aliases": ["yidali", "italy", "italia", "it"],
+		"flag": "🇮🇹",
+		"center": { "lat": 41.8719, "lon": 12.5674, "zoom": 6 },
+		"cities": [
+			{
+				"name": "罗马",
+				"nameEn": "Rome",
+				"aliases": ["rome", "roma", "luoma"],
+				"lat": 41.9028,
+				"lon": 12.4964,
+				"zoom": 12
+			},
+			{
+				"name": "米兰",
+				"nameEn": "Milan",
+				"aliases": ["milan", "milano", "milan"],
+				"lat": 45.4642,
+				"lon": 9.19,
+				"zoom": 12
+			},
+			{
+				"name": "佛罗伦萨",
+				"nameEn": "Florence",
+				"aliases": ["florence", "firenze", "foluolunsa"],
+				"lat": 43.7696,
+				"lon": 11.2558,
+				"zoom": 12
+			},
+			{
+				"name": "威尼斯",
+				"nameEn": "Venice",
+				"aliases": ["venice", "venezia", "weinisi"],
+				"lat": 45.4408,
+				"lon": 12.3155,
+				"zoom": 12
+			},
+			{
+				"name": "那不勒斯",
+				"nameEn": "Naples",
+				"aliases": ["naples", "napoli", "nabulesi"],
+				"lat": 40.8518,
+				"lon": 14.2681,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "NL",
+		"name": "荷兰",
+		"nameEn": "Netherlands",
+		"aliases": ["helan", "netherlands", "holland", "nl"],
+		"flag": "🇳🇱",
+		"center": { "lat": 52.1326, "lon": 5.2913, "zoom": 7 },
+		"cities": [
+			{
+				"name": "阿姆斯特丹",
+				"nameEn": "Amsterdam",
+				"aliases": ["amsterdam", "amusitedan"],
+				"lat": 52.3676,
+				"lon": 4.9041,
+				"zoom": 12
+			},
+			{
+				"name": "鹿特丹",
+				"nameEn": "Rotterdam",
+				"aliases": ["rotterdam", "lutedan"],
+				"lat": 51.9244,
+				"lon": 4.4777,
+				"zoom": 12
+			},
+			{
+				"name": "海牙",
+				"nameEn": "The Hague",
+				"aliases": ["the hague", "den haag", "haiya"],
+				"lat": 52.0705,
+				"lon": 4.3007,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "CH",
+		"name": "瑞士",
+		"nameEn": "Switzerland",
+		"aliases": ["ruishi", "switzerland", "swiss", "ch"],
+		"flag": "🇨🇭",
+		"center": { "lat": 46.8182, "lon": 8.2275, "zoom": 8 },
+		"cities": [
+			{
+				"name": "苏黎世",
+				"nameEn": "Zurich",
+				"aliases": ["zurich", "sulishi"],
+				"lat": 47.3769,
+				"lon": 8.5417,
+				"zoom": 12
+			},
+			{
+				"name": "日内瓦",
+				"nameEn": "Geneva",
+				"aliases": ["geneva", "rineiwa"],
+				"lat": 46.2044,
+				"lon": 6.1432,
+				"zoom": 12
+			},
+			{
+				"name": "巴塞尔",
+				"nameEn": "Basel",
+				"aliases": ["basel", "basaier"],
+				"lat": 47.5596,
+				"lon": 7.5886,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "AT",
+		"name": "奥地利",
+		"nameEn": "Austria",
+		"aliases": ["aodili", "austria", "at"],
+		"flag": "🇦🇹",
+		"center": { "lat": 47.5162, "lon": 14.5501, "zoom": 7 },
+		"cities": [
+			{
+				"name": "维也纳",
+				"nameEn": "Vienna",
+				"aliases": ["vienna", "wien", "weiyena"],
+				"lat": 48.2082,
+				"lon": 16.3738,
+				"zoom": 12
+			},
+			{
+				"name": "萨尔茨堡",
+				"nameEn": "Salzburg",
+				"aliases": ["salzburg", "sa'ercibao"],
+				"lat": 47.8095,
+				"lon": 13.055,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "BE",
+		"name": "比利时",
+		"nameEn": "Belgium",
+		"aliases": ["bilishi", "belgium", "be"],
+		"flag": "🇧🇪",
+		"center": { "lat": 50.5039, "lon": 4.4699, "zoom": 8 },
+		"cities": [
+			{
+				"name": "布鲁塞尔",
+				"nameEn": "Brussels",
+				"aliases": ["brussels", "bulusai'er"],
+				"lat": 50.8503,
+				"lon": 4.3517,
+				"zoom": 12
+			},
+			{
+				"name": "安特卫普",
+				"nameEn": "Antwerp",
+				"aliases": ["antwerp", "anteweiapu"],
+				"lat": 51.2194,
+				"lon": 4.4025,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "PT",
+		"name": "葡萄牙",
+		"nameEn": "Portugal",
+		"aliases": ["putaoya", "portugal", "pt"],
+		"flag": "🇵🇹",
+		"center": { "lat": 39.3999, "lon": -8.2245, "zoom": 7 },
+		"cities": [
+			{
+				"name": "里斯本",
+				"nameEn": "Lisbon",
+				"aliases": ["lisbon", "lisboa", "lisiben"],
+				"lat": 38.7223,
+				"lon": -9.1393,
+				"zoom": 12
+			},
+			{
+				"name": "波尔图",
+				"nameEn": "Porto",
+				"aliases": ["porto", "bo'ertu"],
+				"lat": 41.1579,
+				"lon": -8.6291,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "GR",
+		"name": "希腊",
+		"nameEn": "Greece",
+		"aliases": ["xila", "greece", "gr"],
+		"flag": "🇬🇷",
+		"center": { "lat": 39.0742, "lon": 21.8243, "zoom": 7 },
+		"cities": [
+			{
+				"name": "雅典",
+				"nameEn": "Athens",
+				"aliases": ["athens", "yadian"],
+				"lat": 37.9838,
+				"lon": 23.7275,
+				"zoom": 12
+			},
+			{
+				"name": "米科诺斯岛",
+				"nameEn": "Mykonos",
+				"aliases": ["mykonos", "mikenuosi"],
+				"lat": 37.4467,
+				"lon": 25.3289,
+				"zoom": 12
+			},
+			{
+				"name": "圣托里尼",
+				"nameEn": "Santorini",
+				"aliases": ["santorini", "shentuolini"],
+				"lat": 36.3932,
+				"lon": 25.4615,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "SE",
+		"name": "瑞典",
+		"nameEn": "Sweden",
+		"aliases": ["ruidian", "sweden", "se"],
+		"flag": "🇸🇪",
+		"center": { "lat": 60.1282, "lon": 18.6435, "zoom": 5 },
+		"cities": [
+			{
+				"name": "斯德哥尔摩",
+				"nameEn": "Stockholm",
+				"aliases": ["stockholm", "sidegeermo"],
+				"lat": 59.3293,
+				"lon": 18.0686,
+				"zoom": 12
+			},
+			{
+				"name": "哥德堡",
+				"nameEn": "Gothenburg",
+				"aliases": ["gothenburg", "gedeberg"],
+				"lat": 57.7089,
+				"lon": 11.9746,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "NO",
+		"name": "挪威",
+		"nameEn": "Norway",
+		"aliases": ["nuowei", "norway", "no"],
+		"flag": "🇳🇴",
+		"center": { "lat": 60.472, "lon": 8.4689, "zoom": 5 },
+		"cities": [
+			{
+				"name": "奥斯陆",
+				"nameEn": "Oslo",
+				"aliases": ["oslo", "aosilu"],
+				"lat": 59.9139,
+				"lon": 10.7522,
+				"zoom": 12
+			},
+			{
+				"name": "卑尔根",
+				"nameEn": "Bergen",
+				"aliases": ["bergen", "bei'ergen"],
+				"lat": 60.3913,
+				"lon": 5.3221,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "DK",
+		"name": "丹麦",
+		"nameEn": "Denmark",
+		"aliases": ["danmai", "denmark", "dk"],
+		"flag": "🇩🇰",
+		"center": { "lat": 56.2639, "lon": 9.5018, "zoom": 7 },
+		"cities": [
+			{
+				"name": "哥本哈根",
+				"nameEn": "Copenhagen",
+				"aliases": ["copenhagen", "gebenhagen"],
+				"lat": 55.6761,
+				"lon": 12.5683,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "FI",
+		"name": "芬兰",
+		"nameEn": "Finland",
+		"aliases": ["fenlan", "finland", "fi"],
+		"flag": "🇫🇮",
+		"center": { "lat": 61.9241, "lon": 25.7482, "zoom": 5 },
+		"cities": [
+			{
+				"name": "赫尔辛基",
+				"nameEn": "Helsinki",
+				"aliases": ["helsinki", "he'erxinji"],
+				"lat": 60.1699,
+				"lon": 24.9384,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "PL",
+		"name": "波兰",
+		"nameEn": "Poland",
+		"aliases": ["bolan", "poland", "polska", "pl"],
+		"flag": "🇵🇱",
+		"center": { "lat": 51.9194, "lon": 19.1451, "zoom": 6 },
+		"cities": [
+			{
+				"name": "华沙",
+				"nameEn": "Warsaw",
+				"aliases": ["warsaw", "warszawa", "huasha"],
+				"lat": 52.2297,
+				"lon": 21.0122,
+				"zoom": 12
+			},
+			{
+				"name": "克拉科夫",
+				"nameEn": "Krakow",
+				"aliases": ["krakow", "kelakofu"],
+				"lat": 50.0647,
+				"lon": 19.945,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "CZ",
+		"name": "捷克",
+		"nameEn": "Czechia",
+		"aliases": ["jieke", "czech", "czechia", "cz"],
+		"flag": "🇨🇿",
+		"center": { "lat": 49.8175, "lon": 15.473, "zoom": 7 },
+		"cities": [
+			{
+				"name": "布拉格",
+				"nameEn": "Prague",
+				"aliases": ["prague", "praha", "bulage"],
+				"lat": 50.0755,
+				"lon": 14.4378,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "HU",
+		"name": "匈牙利",
+		"nameEn": "Hungary",
+		"aliases": ["xiongyali", "hungary", "hu"],
+		"flag": "🇭🇺",
+		"center": { "lat": 47.1625, "lon": 19.5033, "zoom": 7 },
+		"cities": [
+			{
+				"name": "布达佩斯",
+				"nameEn": "Budapest",
+				"aliases": ["budapest", "budapeisi"],
+				"lat": 47.4979,
+				"lon": 19.0402,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "IE",
+		"name": "爱尔兰",
+		"nameEn": "Ireland",
+		"aliases": ["ai'erlan", "ireland", "ie"],
+		"flag": "🇮🇪",
+		"center": { "lat": 53.1424, "lon": -7.6921, "zoom": 7 },
+		"cities": [
+			{
+				"name": "都柏林",
+				"nameEn": "Dublin",
+				"aliases": ["dublin", "doubolin"],
+				"lat": 53.3498,
+				"lon": -6.2603,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "RU",
+		"name": "俄罗斯",
+		"nameEn": "Russia",
+		"aliases": ["eluosi", "russia", "ru"],
+		"flag": "🇷🇺",
+		"center": { "lat": 61.524, "lon": 105.3188, "zoom": 3 },
+		"cities": [
+			{
+				"name": "莫斯科",
+				"nameEn": "Moscow",
+				"aliases": ["moscow", "moskva", "mosike"],
+				"lat": 55.7558,
+				"lon": 37.6173,
+				"zoom": 12
+			},
+			{
+				"name": "圣彼得堡",
+				"nameEn": "Saint Petersburg",
+				"aliases": ["saint petersburg", "shengbidebao"],
+				"lat": 59.9343,
+				"lon": 30.3351,
+				"zoom": 12
+			},
+			{
+				"name": "新西伯利亚",
+				"nameEn": "Novosibirsk",
+				"aliases": ["novosibirsk", "xinxiboliya"],
+				"lat": 55.0084,
+				"lon": 82.9357,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "US",
+		"name": "美国",
+		"nameEn": "United States",
+		"aliases": ["meiguo", "usa", "us", "america", "united states"],
+		"flag": "🇺🇸",
+		"center": { "lat": 37.0902, "lon": -95.7129, "zoom": 4 },
+		"cities": [
+			{
+				"name": "纽约",
+				"nameEn": "New York",
+				"aliases": ["new york", "nyc", "niuyue"],
+				"lat": 40.7128,
+				"lon": -74.006,
+				"zoom": 12
+			},
+			{
+				"name": "洛杉矶",
+				"nameEn": "Los Angeles",
+				"aliases": ["los angeles", "la", "luoshanji"],
+				"lat": 34.0522,
+				"lon": -118.2437,
+				"zoom": 12
+			},
+			{
+				"name": "旧金山 / 硅谷",
+				"nameEn": "San Francisco",
+				"aliases": ["san francisco", "sf", "jiujinshan"],
+				"lat": 37.7749,
+				"lon": -122.4194,
+				"zoom": 12
+			},
+			{
+				"name": "芝加哥",
+				"nameEn": "Chicago",
+				"aliases": ["chicago", "zhijiage"],
+				"lat": 41.8781,
+				"lon": -87.6298,
+				"zoom": 12
+			},
+			{
+				"name": "迈阿密",
+				"nameEn": "Miami",
+				"aliases": ["miami", "mai'ami"],
+				"lat": 25.7617,
+				"lon": -80.1918,
+				"zoom": 12
+			},
+			{
+				"name": "西雅图",
+				"nameEn": "Seattle",
+				"aliases": ["seattle", "xiyatu"],
+				"lat": 47.6062,
+				"lon": -122.3321,
+				"zoom": 12
+			},
+			{
+				"name": "华盛顿特区",
+				"nameEn": "Washington, D.C.",
+				"aliases": ["washington dc", "dc", "huashengdun"],
+				"lat": 38.9072,
+				"lon": -77.0369,
+				"zoom": 12
+			},
+			{
+				"name": "拉斯维加斯",
+				"nameEn": "Las Vegas",
+				"aliases": ["las vegas", "vegas", "lasiweijiasi"],
+				"lat": 36.1699,
+				"lon": -115.1398,
+				"zoom": 12
+			},
+			{
+				"name": "波士顿",
+				"nameEn": "Boston",
+				"aliases": ["boston", "boshidun"],
+				"lat": 42.3601,
+				"lon": -71.0589,
+				"zoom": 12
+			},
+			{
+				"name": "亚特兰大",
+				"nameEn": "Atlanta",
+				"aliases": ["atlanta", "yatelanda"],
+				"lat": 33.749,
+				"lon": -84.388,
+				"zoom": 12
+			},
+			{
+				"name": "休斯敦",
+				"nameEn": "Houston",
+				"aliases": ["houston", "xiusidun"],
+				"lat": 29.7604,
+				"lon": -95.3698,
+				"zoom": 12
+			},
+			{
+				"name": "达拉斯",
+				"nameEn": "Dallas",
+				"aliases": ["dallas", "dalasi"],
+				"lat": 32.7767,
+				"lon": -96.797,
+				"zoom": 12
+			},
+			{
+				"name": "檀香山 / 夏威夷",
+				"nameEn": "Honolulu / Hawaii",
+				"aliases": ["honolulu", "hawaii", "tanxiangshan", "xiaweiyi"],
+				"lat": 21.3069,
+				"lon": -157.8583,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "CA",
+		"name": "加拿大",
+		"nameEn": "Canada",
+		"aliases": ["jianada", "canada", "ca"],
+		"flag": "🇨🇦",
+		"center": { "lat": 56.1304, "lon": -106.3468, "zoom": 4 },
+		"cities": [
+			{
+				"name": "多伦多",
+				"nameEn": "Toronto",
+				"aliases": ["toronto", "duolunduo"],
+				"lat": 43.6532,
+				"lon": -79.3832,
+				"zoom": 12
+			},
+			{
+				"name": "温哥华",
+				"nameEn": "Vancouver",
+				"aliases": ["vancouver", "wengehua"],
+				"lat": 49.2827,
+				"lon": -123.1207,
+				"zoom": 12
+			},
+			{
+				"name": "蒙特利尔",
+				"nameEn": "Montreal",
+				"aliases": ["montreal", "mengtelier"],
+				"lat": 45.5017,
+				"lon": -73.5673,
+				"zoom": 12
+			},
+			{
+				"name": "卡尔加里",
+				"nameEn": "Calgary",
+				"aliases": ["calgary", "ka'erjiali"],
+				"lat": 51.0447,
+				"lon": -114.0719,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "MX",
+		"name": "墨西哥",
+		"nameEn": "Mexico",
+		"aliases": ["moxige", "mexico", "mx"],
+		"flag": "🇲🇽",
+		"center": { "lat": 23.6345, "lon": -102.5528, "zoom": 5 },
+		"cities": [
+			{
+				"name": "墨西哥城",
+				"nameEn": "Mexico City",
+				"aliases": ["mexico city", "cdmx", "moxigecheng"],
+				"lat": 19.4326,
+				"lon": -99.1332,
+				"zoom": 12
+			},
+			{
+				"name": "瓜达拉哈拉",
+				"nameEn": "Guadalajara",
+				"aliases": ["guadalajara", "guadalahala"],
+				"lat": 20.6597,
+				"lon": -103.3496,
+				"zoom": 12
+			},
+			{
+				"name": "坎昆",
+				"nameEn": "Cancun",
+				"aliases": ["cancun", "kankun"],
+				"lat": 21.1619,
+				"lon": -86.8515,
+				"zoom": 12
+			},
+			{
+				"name": "蒙特雷",
+				"nameEn": "Monterrey",
+				"aliases": ["monterrey", "mengtelei"],
+				"lat": 25.6866,
+				"lon": -100.3161,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "BR",
+		"name": "巴西",
+		"nameEn": "Brazil",
+		"aliases": ["baxi", "brazil", "brasil", "br"],
+		"flag": "🇧🇷",
+		"center": { "lat": -14.235, "lon": -51.9253, "zoom": 4 },
+		"cities": [
+			{
+				"name": "圣保罗",
+				"nameEn": "São Paulo",
+				"aliases": ["sao paulo", "shengbaoluo"],
+				"lat": -23.5505,
+				"lon": -46.6333,
+				"zoom": 12
+			},
+			{
+				"name": "里约热内卢",
+				"nameEn": "Rio de Janeiro",
+				"aliases": ["rio", "rio de janeiro", "liyuereneilu"],
+				"lat": -22.9068,
+				"lon": -43.1729,
+				"zoom": 12
+			},
+			{
+				"name": "萨尔瓦多",
+				"nameEn": "Salvador",
+				"aliases": ["salvador", "sa'erwadu"],
+				"lat": -12.9777,
+				"lon": -38.5016,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "AR",
+		"name": "阿根廷",
+		"nameEn": "Argentina",
+		"aliases": ["agenting", "argentina", "ar"],
+		"flag": "🇦🇷",
+		"center": { "lat": -38.4161, "lon": -63.6167, "zoom": 4 },
+		"cities": [
+			{
+				"name": "布宜诺斯艾利斯",
+				"nameEn": "Buenos Aires",
+				"aliases": ["buenos aires", "buyinuosiai"],
+				"lat": -34.6037,
+				"lon": -58.3816,
+				"zoom": 12
+			},
+			{
+				"name": "科尔多瓦",
+				"nameEn": "Cordoba",
+				"aliases": ["cordoba", "ke'erduowa"],
+				"lat": -31.4201,
+				"lon": -64.1888,
+				"zoom": 12
+			},
+			{
+				"name": "门多萨",
+				"nameEn": "Mendoza",
+				"aliases": ["mendoza", "menduosa"],
+				"lat": -32.8895,
+				"lon": -68.8458,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "CO",
+		"name": "哥伦比亚",
+		"nameEn": "Colombia",
+		"aliases": ["gelunbiya", "colombia", "co"],
+		"flag": "🇨🇴",
+		"center": { "lat": 4.5709, "lon": -74.2973, "zoom": 5 },
+		"cities": [
+			{
+				"name": "波哥大",
+				"nameEn": "Bogota",
+				"aliases": ["bogota", "bogeda"],
+				"lat": 4.711,
+				"lon": -74.0721,
+				"zoom": 12
+			},
+			{
+				"name": "麦德林",
+				"nameEn": "Medellin",
+				"aliases": ["medellin", "maidelin"],
+				"lat": 6.2442,
+				"lon": -75.5812,
+				"zoom": 12
+			},
+			{
+				"name": "卡塔赫纳",
+				"nameEn": "Cartagena",
+				"aliases": ["cartagena", "katahena"],
+				"lat": 10.391,
+				"lon": -75.4794,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "CL",
+		"name": "智利",
+		"nameEn": "Chile",
+		"aliases": ["zhili", "chile", "cl"],
+		"flag": "🇨🇱",
+		"center": { "lat": -35.6751, "lon": -71.543, "zoom": 4 },
+		"cities": [
+			{
+				"name": "圣地亚哥",
+				"nameEn": "Santiago",
+				"aliases": ["santiago", "shengdiyage"],
+				"lat": -33.4489,
+				"lon": -70.6693,
+				"zoom": 12
+			},
+			{
+				"name": "瓦尔帕莱索",
+				"nameEn": "Valparaiso",
+				"aliases": ["valparaiso", "wa'erpalaisu"],
+				"lat": -33.0472,
+				"lon": -71.6127,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "AU",
+		"name": "澳大利亚",
+		"nameEn": "Australia",
+		"aliases": ["aodaliya", "australia", "oz", "aussie", "au"],
+		"flag": "🇦🇺",
+		"center": { "lat": -25.2744, "lon": 133.7751, "zoom": 4 },
+		"cities": [
+			{
+				"name": "悉尼",
+				"nameEn": "Sydney",
+				"aliases": ["sydney", "xini"],
+				"lat": -33.8688,
+				"lon": 151.2093,
+				"zoom": 12
+			},
+			{
+				"name": "墨尔本",
+				"nameEn": "Melbourne",
+				"aliases": ["melbourne", "mo'erben"],
+				"lat": -37.8136,
+				"lon": 144.9631,
+				"zoom": 12
+			},
+			{
+				"name": "布里斯班",
+				"nameEn": "Brisbane",
+				"aliases": ["brisbane", "bulisiban"],
+				"lat": -27.4698,
+				"lon": 153.0251,
+				"zoom": 12
+			},
+			{
+				"name": "珀斯",
+				"nameEn": "Perth",
+				"aliases": ["perth", "posi"],
+				"lat": -31.9505,
+				"lon": 115.8605,
+				"zoom": 12
+			},
+			{
+				"name": "黄金海岸",
+				"nameEn": "Gold Coast",
+				"aliases": ["gold coast", "huangjinhai'an"],
+				"lat": -28.0167,
+				"lon": 153.4,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "NZ",
+		"name": "新西兰",
+		"nameEn": "New Zealand",
+		"aliases": ["xinxilan", "new zealand", "nz"],
+		"flag": "🇳🇿",
+		"center": { "lat": -40.9006, "lon": 174.886, "zoom": 5 },
+		"cities": [
+			{
+				"name": "奥克兰",
+				"nameEn": "Auckland",
+				"aliases": ["auckland", "aokelan"],
+				"lat": -36.8485,
+				"lon": 174.7633,
+				"zoom": 12
+			},
+			{
+				"name": "惠灵顿",
+				"nameEn": "Wellington",
+				"aliases": ["wellington", "huilingdun"],
+				"lat": -41.2865,
+				"lon": 174.7762,
+				"zoom": 12
+			},
+			{
+				"name": "皇后镇",
+				"nameEn": "Queenstown",
+				"aliases": ["queenstown", "huanghoudun"],
+				"lat": -45.0312,
+				"lon": 168.6626,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "ZA",
+		"name": "南非",
+		"nameEn": "South Africa",
+		"aliases": ["nanfei", "south africa", "za"],
+		"flag": "🇿🇦",
+		"center": { "lat": -30.5595, "lon": 22.9375, "zoom": 5 },
+		"cities": [
+			{
+				"name": "开普敦",
+				"nameEn": "Cape Town",
+				"aliases": ["cape town", "kaipudun"],
+				"lat": -33.9249,
+				"lon": 18.4241,
+				"zoom": 12
+			},
+			{
+				"name": "约翰内斯堡",
+				"nameEn": "Johannesburg",
+				"aliases": ["johannesburg", "joburg", "yuehanneisi"],
+				"lat": -26.2041,
+				"lon": 28.0473,
+				"zoom": 12
+			},
+			{
+				"name": "德班",
+				"nameEn": "Durban",
+				"aliases": ["durban", "deban"],
+				"lat": -29.8587,
+				"lon": 31.0218,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "EG",
+		"name": "埃及",
+		"nameEn": "Egypt",
+		"aliases": ["aiji", "egypt", "eg"],
+		"flag": "🇪🇬",
+		"center": { "lat": 26.8206, "lon": 30.8025, "zoom": 6 },
+		"cities": [
+			{
+				"name": "开罗",
+				"nameEn": "Cairo",
+				"aliases": ["cairo", "kailuo"],
+				"lat": 30.0444,
+				"lon": 31.2357,
+				"zoom": 12
+			},
+			{
+				"name": "亚历山大",
+				"nameEn": "Alexandria",
+				"aliases": ["alexandria", "yalishanda"],
+				"lat": 31.2001,
+				"lon": 29.9187,
+				"zoom": 12
+			}
+		]
+	},
+	{
+		"code": "MA",
+		"name": "摩洛哥",
+		"nameEn": "Morocco",
+		"aliases": ["moluoge", "morocco", "ma"],
+		"flag": "🇲🇦",
+		"center": { "lat": 31.7917, "lon": -7.0926, "zoom": 6 },
+		"cities": [
+			{
+				"name": "马拉喀什",
+				"nameEn": "Marrakech",
+				"aliases": ["marrakech", "malakashi"],
+				"lat": 31.6295,
+				"lon": -7.9811,
+				"zoom": 12
+			},
+			{
+				"name": "卡萨布兰卡",
+				"nameEn": "Casablanca",
+				"aliases": ["casablanca", "kasabulanka"],
+				"lat": 33.5731,
+				"lon": -7.5898,
+				"zoom": 12
+			}
+		]
+	}
+]

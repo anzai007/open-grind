@@ -31,6 +31,14 @@ pub fn spawn_ws_task(app: AppHandle) {
 							&event.payload,
 						)
 						.ok();
+						app.emit(
+							"ws:raw_event",
+							&serde_json::json!({
+								"type": &event.event_type,
+								"payload": &event.payload,
+							}),
+						)
+						.ok();
 					}
 					Err(RecvError::Lagged(skipped)) => {
 						app.emit("ws:events-dropped", skipped).ok();

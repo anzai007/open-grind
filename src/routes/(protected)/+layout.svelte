@@ -4,6 +4,7 @@
 	import CommandCenter from "$lib/components/command-center/CommandCenter.svelte";
 	import MediaDropOverlay from "$lib/components/shared/MediaDropOverlay.svelte";
 	import { restoreStrandedLocation } from "$lib/entitlements/honduras-hold";
+	import NetworkLoggerDialog from "$lib/network-logger/NetworkLoggerDialog.svelte";
 	import { listenForKeyboardMedia } from "$lib/platform/keyboard-media.svelte";
 	import { listenForMedia } from "$lib/platform/media-intake.svelte";
 	import { startOnlineHeartbeat } from "$lib/presence/online-heartbeat";
@@ -29,3 +30,4 @@
 {@render children()}
 <CommandCenter />
 <MediaDropOverlay />
+<NetworkLoggerDialog />

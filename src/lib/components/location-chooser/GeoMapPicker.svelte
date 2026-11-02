@@ -21,6 +21,7 @@
 	import { locationRequest } from "$lib/location/location-request.svelte";
 	import { openExternalLink } from "$lib/platform/link-opener";
 	import { isMobilePlatform } from "$lib/platform/os";
+	import CityCascader from "./CityCascader.svelte";
 	import { PIN_ZOOM } from "./constants";
 	import LocateMeButton from "./LocateMeButton.svelte";
 	import PlaceSearch from "./PlaceSearch.svelte";
@@ -228,6 +229,27 @@
 		]}
 		inert={locked}
 	>
+		<div class="absolute top-2.5 right-3 left-14 z-1010 max-w-sm">
+			<CityCascader
+				disabled={locked}
+				onselect={(target) => {
+					if (target.isCity) {
+						movePin({
+							lat: target.lat,
+							lon: target.lon,
+							zoom: target.zoom ?? 12,
+						});
+					} else {
+						map?.setView(
+							[target.lat, target.lon],
+							target.zoom ?? 5,
+							cameraAnimation,
+						);
+					}
+				}}
+			/>
+		</div>
+
 		<PlaceSearch
 			clearsLocateButton={gpsAvailable}
 			onpick={(place) => movePin({ ...place, zoom: PIN_ZOOM })}

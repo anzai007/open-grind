@@ -15,6 +15,7 @@ import { signOutIfSessionLost } from "$lib/api/session-lost";
 import { demoEnabled, demoRoute } from "$lib/demo";
 import { deprecatedClientVersionErrorSchema } from "$lib/model/authentication";
 import { schemaName } from "$lib/model/schema-names";
+import { networkLoggerState } from "$lib/network-logger/network-logger-state.svelte";
 import { fromBase64, toBase64 } from "$lib/util/base64";
 import type { MediaFileDescriptor } from "$lib/platform/media-file";
 
@@ -217,6 +218,16 @@ export async function uploadFileRest(
 ) {
 	const method = "POST";
 	const requestInfo = { method, path };
+	const logEntry = networkLoggerState.startHttp({
+		method,
+		url: path,
+		body: {
+			file: options.file,
+			part: options.part,
+			maxBodySize: options.maxBodySize,
+			profileId: options.profileId,
+		},
+	});
 	try {
 		const outcome = uploadOutcomeSchema.parse(
 			await invoke("upload_media_file", {
@@ -227,14 +238,36 @@ export async function uploadFileRest(
 			}),
 		);
 		if (outcome.sha256 !== null) options.onHashed?.(outcome.sha256);
-		return {
+		const resp = {
 			response: decodeRestResponse({
 				encoded: outcome.response,
 				requestInfo,
 			}),
 			sha256: outcome.sha256,
 		};
+		let responseBody: unknown = undefined;
+		try {
+			responseBody = resp.response.json();
+		} catch {
+			try {
+				responseBody = resp.response.text();
+			} catch {
+				responseBody = "[binary data]";
+			}
+		}
+		networkLoggerState.completeHttp(logEntry.id, {
+			status: resp.response.status,
+			responseBody,
+		});
+		return resp;
 	} catch (error) {
+		const errObj = error as {
+			response?: { status?: number; body?: string };
+		};
+		networkLoggerState.failHttp(logEntry.id, {
+			status: errObj?.response?.status ?? 0,
+			error: error instanceof Error ? error.message : String(error),
+		});
 		throw restInvokeError({ error, requestInfo });
 	}
 }
@@ -249,16 +282,59 @@ export async function fetchRest(
 ) {
 	const method = options.method ?? "GET";
 	const requestInfo = { method, path, body: options.body };
-	const response = await respondFromDemoOrSend({
-		requestInfo,
-		send: () =>
-			sendRestRequest({
-				requestInfo,
-				abortController: options.abortController,
-			}),
+	const logEntry = networkLoggerState.startHttp({
+		method,
+		url: path,
+		body: options.body,
 	});
-	noticeRefusedVersion(response);
-	return response;
+
+	try {
+		const response = await respondFromDemoOrSend({
+			requestInfo,
+			send: () =>
+				sendRestRequest({
+					requestInfo,
+					abortController: options.abortController,
+				}),
+		});
+		noticeRefusedVersion(response);
+
+		let responseBody: unknown = undefined;
+		try {
+			responseBody = response.json();
+		} catch {
+			try {
+				responseBody = response.text();
+			} catch {
+				responseBody = "[binary data]";
+			}
+		}
+		networkLoggerState.completeHttp(logEntry.id, {
+			status: response.status,
+			responseBody,
+		});
+
+		return response;
+	} catch (error) {
+		let responseBody: unknown = undefined;
+		const errObj = error as {
+			response?: { status?: number; body?: string };
+		};
+		const status = errObj?.response?.status ?? 0;
+		if (errObj?.response?.body) {
+			try {
+				responseBody = JSON.parse(errObj.response.body);
+			} catch {
+				responseBody = errObj.response.body;
+			}
+		}
+		networkLoggerState.failHttp(logEntry.id, {
+			status,
+			error: error instanceof Error ? error.message : String(error),
+			responseBody,
+		});
+		throw error;
+	}
 }
 
 function noticeRefusedVersion(response: RestResponse): void {
@@ -361,11 +437,42 @@ export async function fetchExternal({
 	range?: string;
 }) {
 	const requestInfo = { method: "GET", path: hostQualifiedPath(url) };
-	return await respondFromDemoOrSend({
-		requestInfo,
-		ErrorClass: ExternalRequestError,
-		send: () => sendExternalRequest({ url, range, requestInfo }),
+	const logEntry = networkLoggerState.startHttp({
+		method: "GET",
+		url: url.href,
+		headers: range ? { range } : undefined,
 	});
+	try {
+		const response = await respondFromDemoOrSend({
+			requestInfo,
+			ErrorClass: ExternalRequestError,
+			send: () => sendExternalRequest({ url, range, requestInfo }),
+		});
+		let responseBody: unknown = undefined;
+		try {
+			responseBody = response.json();
+		} catch {
+			try {
+				responseBody = response.text();
+			} catch {
+				responseBody = "[binary data]";
+			}
+		}
+		networkLoggerState.completeHttp(logEntry.id, {
+			status: response.status,
+			responseBody,
+		});
+		return response;
+	} catch (error) {
+		const errObj = error as {
+			response?: { status?: number; body?: string };
+		};
+		networkLoggerState.failHttp(logEntry.id, {
+			status: errObj?.response?.status ?? 0,
+			error: error instanceof Error ? error.message : String(error),
+		});
+		throw externalInvokeError({ error, requestInfo });
+	}
 }
 
 export function parseApiResponse<TSchema extends z.ZodType>(options: {

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CommandCenterTrigger from "$lib/components/command-center/CommandCenterTrigger.svelte";
 	import ProgressiveBlur from "$lib/components/shared/ProgressiveBlur.svelte";
+	import TopMenu from "$lib/network-logger/TopMenu.svelte";
 	import { topChrome } from "$lib/util/screen-chrome.svelte";
 	import GridFilters from "../GridFilters.svelte";
 	import LocationChange from "../LocationChange.svelte";
@@ -17,13 +18,18 @@
 	direction="topToBottom"
 	{@attach topChrome}
 >
-	<div
-		data-scroll-intent="x"
-		class="scrollbar-thin flex gap-0.5 overflow-x-auto p-4 pt-0"
-	>
-		<LocationChange />
-		<QuickFilters bind:openFilters />
-		<CommandCenterTrigger />
+	<div class="flex items-center justify-between gap-1 p-4 pt-0">
+		<div
+			data-scroll-intent="x"
+			class="scrollbar-thin flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+		>
+			<LocationChange />
+			<QuickFilters bind:openFilters />
+		</div>
+		<div class="flex shrink-0 items-center gap-1 ps-1">
+			<CommandCenterTrigger />
+			<TopMenu />
+		</div>
 	</div>
 </ProgressiveBlur>
 <GridFilters bind:open={openFilters.all} />
