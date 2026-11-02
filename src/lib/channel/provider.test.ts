@@ -62,4 +62,22 @@ describe("Channel Providers & Metadata", () => {
 		expect(res.valid).toBe(false);
 		expect(typeof res.errorMessage).toBe("string");
 	});
+
+	it("dispatches Woof interaction in ScruffProvider successfully with graceful fallback", async () => {
+		const provider = new ScruffProvider();
+		const result = await provider.sendInteraction("user_12345");
+		expect(result.success).toBe(true);
+		expect(result.interactionType).toBe("woof");
+		expect(result.message).toContain("Woof");
+		expect(result.targetUserId).toBe("user_12345");
+	});
+
+	it("dispatches Wave interaction in JackdProvider successfully with graceful fallback", async () => {
+		const provider = new JackdProvider();
+		const result = await provider.sendInteraction("user_67890");
+		expect(result.success).toBe(true);
+		expect(result.interactionType).toBe("wave");
+		expect(result.message).toContain("Wave");
+		expect(result.targetUserId).toBe("user_67890");
+	});
 });

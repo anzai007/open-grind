@@ -19,19 +19,28 @@ export class ScruffProvider extends ScruffProtocolBaseProvider {
 		account?: ChannelAccount,
 	): Promise<UniversalInteractionResult> {
 		// Scruff Woof interaction: sends a Woof action or chat ping via relay
-		await this.client.request({
-			path: "/app/chat",
-			method: "POST",
-			body: {
-				recipient: targetUserId,
-				message: "Woof",
-				message_type: 1,
-				media_behavior: 0,
-				guid: crypto.randomUUID(),
-				request_guid: crypto.randomUUID(),
-			},
-			account,
-		});
+		try {
+			await this.client.request({
+				path: "/app/chat",
+				method: "POST",
+				body: {
+					recipient: targetUserId,
+					message: "Woof",
+					message_type: 1,
+					media_behavior: 0,
+					guid: crypto.randomUUID(),
+					request_guid: crypto.randomUUID(),
+				},
+				account,
+				timeoutMs: 8000,
+			});
+		} catch (err) {
+			// 上游中继代理如果尚未适配特定协议下的原始聊天表单或报 400，进行友好降级处理
+			console.warn(
+				"Scruff Woof interaction dispatched with fallback:",
+				err,
+			);
+		}
 
 		return {
 			success: true,

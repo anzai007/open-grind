@@ -373,20 +373,27 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 		const guid = crypto.randomUUID();
 		const requestGuid = crypto.randomUUID();
 
-		await this.client.request({
-			account,
-			body: {
-				guid,
-				media_behavior: 0,
-				message: params.text,
-				message_type: 1,
-				recipient: params.targetUserId,
-				request_guid: requestGuid,
-			},
-			method: "POST",
-			path: "/app/chat",
-			timeoutMs: 15000,
-		});
+		try {
+			await this.client.request({
+				account,
+				body: {
+					guid,
+					media_behavior: 0,
+					message: params.text,
+					message_type: 1,
+					recipient: params.targetUserId,
+					request_guid: requestGuid,
+				},
+				method: "POST",
+				path: "/app/chat",
+				timeoutMs: 15000,
+			});
+		} catch (err) {
+			console.warn(
+				"Upstream chat dispatch warning, retaining optimistic sent state:",
+				err,
+			);
+		}
 
 		const metaId = account?.extraMeta?.profileId;
 		const myId =

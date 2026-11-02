@@ -40,21 +40,23 @@ export class ChannelChatState {
 			const provider = channelState.currentProvider;
 			const account = channelState.currentAccount;
 			const res = await provider.getConversations({ account, offset: 0 });
-			this.conversations = res.items;
+			const serverItems = res.items;
 
-			// 如果当前选中的会话不在列表中但有选中，保留当前会话
-			if (
-				this.activeConversationId &&
-				!this.conversations.some(
-					(c) => c.conversationId === this.activeConversationId,
-				)
-			) {
-				// 保留虚拟会话
-			} else if (
-				!this.activeConversationId &&
-				this.conversations.length > 0
-			) {
-				// 默认不强制选中，让用户或宽屏自选
+			// 保留本地创建但尚未入库服务端的草稿/新打开会话（避免点击“发私信”后 1 秒被服务器空列表冲掉）
+			const localDrafts = this.conversations.filter(
+				(local) =>
+					!serverItems.some(
+						(server) =>
+							server.conversationId === local.conversationId ||
+							(Boolean(local.targetUserId) &&
+								server.targetUserId === local.targetUserId),
+					),
+			);
+
+			if (localDrafts.length > 0) {
+				this.conversations = [...localDrafts, ...serverItems];
+			} else {
+				this.conversations = serverItems;
 			}
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : String(e);
