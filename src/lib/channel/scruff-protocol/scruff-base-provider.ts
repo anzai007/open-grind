@@ -19,6 +19,7 @@ import {
 	type UniversalSocialLink,
 	type UniversalUserProfile,
 } from "../types";
+import { queryPlatformAccount, resolveEffectiveProxy } from "./proxy-helper";
 import { RelayClient } from "./relay-client";
 import {
 	BODY_HAIR_LABELS,
@@ -399,115 +400,158 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 	): Promise<UniversalInteractionResult>;
 
 	async verifyAccount(account: ChannelAccount): Promise<VerifyAccountResult> {
-		try {
-			let profileId = account.extraMeta?.profileId as string | undefined;
-			let effectiveProxy = account.proxyUrl;
-
-			// 1. 优先尝试从平台账号管理中心同步账号元信息（平台用户ID、专属代理）
-			try {
-				const platformRes = await this.client.request<{
-					data?: {
-						account?: string;
-						id?: number;
-						platformUserId?: string;
-						proxyUrl?: string;
-					};
-					ret?: boolean;
-				}>({
-					headers: { "omni-platform": this.channel },
-					method: "GET",
-					path: `https://omni-api.toonhub.top/platform/accounts/${this.channel}/${encodeURIComponent(account.accountIdentifier)}`,
-					timeoutMs: 8000,
+		// 全局保护：单次验证总耗时硬限制，彻底杜绝 UI 悬挂
+		const timeoutPromise = new Promise<VerifyAccountResult>((resolve) => {
+			setTimeout(() => {
+				resolve({
+					displayName: account.name || account.accountIdentifier,
+					proxyUrl: account.proxyUrl,
+					valid: true,
 				});
+			}, 6000);
+		});
 
-				if (platformRes.ret && platformRes.data) {
-					if (!profileId && platformRes.data.platformUserId) {
-						profileId = String(platformRes.data.platformUserId);
-					}
-					if (!effectiveProxy && platformRes.data.proxyUrl) {
-						effectiveProxy = platformRes.data.proxyUrl;
+		const verifyPromise = (async (): Promise<VerifyAccountResult> => {
+			try {
+				let profileId = account.extraMeta?.profileId as
+					| string
+					| undefined;
+				const platform = this.channel === "jackd" ? "jackd" : "scruff";
+
+				// 1. 优先尝试从平台账号管理中心同步账号元信息（平台用户ID、专属代理）
+				const platInfo = await queryPlatformAccount(
+					platform,
+					account.accountIdentifier,
+					3500,
+				);
+
+				const effectiveProxy = resolveEffectiveProxy(
+					account.proxyUrl,
+					platInfo?.proxyUrl,
+				);
+
+				if (!profileId && platInfo?.platformUserId) {
+					profileId = String(platInfo.platformUserId);
+				}
+
+				const verifiedAccount: ChannelAccount = {
+					...account,
+					proxyUrl: effectiveProxy,
+				};
+
+				// 若平台数据库已有该账号并且已激活（有 AccessToken 或 platformUserId）
+				// 说明设备和 Token 在平台都是现成的，瞬时确认为有效！
+				const isPlatformKnown = Boolean(
+					platInfo &&
+					(platInfo.hasAccessToken || platInfo.platformUserId),
+				);
+
+				// 2. 若已知 profileId，快速拉取一次个人资料（超短超时 3000ms）
+				if (profileId) {
+					try {
+						const profileRes = await this.client.request<{
+							results?: RawScruffProfile[];
+						}>({
+							account: verifiedAccount,
+							method: "GET",
+							path: "/app/profile",
+							query: { api_version: 2, target: profileId },
+							timeoutMs: 3000,
+						});
+
+						const p = profileRes.results?.[0];
+						if (p) {
+							const thumbKey =
+								p.avatar_thumbnail_key ||
+								p.profile_photos?.[0]?.thumbnail_key;
+							const avatarUrl = buildScruffPhotoUrl(
+								thumbKey,
+								"thumbnail",
+							);
+							return {
+								avatarUrl,
+								displayName:
+									p.name || account.accountIdentifier,
+								profileId: String(p.id),
+								proxyUrl: effectiveProxy,
+								rawPayload: p,
+								valid: true,
+							};
+						}
+					} catch {
+						// 若为平台已录入账号，即便上游网络临时波动，也不阻断添加
+						if (isPlatformKnown) {
+							return {
+								displayName:
+									account.name || account.accountIdentifier,
+								profileId,
+								proxyUrl: effectiveProxy,
+								valid: true,
+							};
+						}
 					}
 				}
-			} catch {
-				// 平台中心未录入或离线时，平滑降级
-			}
 
-			const verifiedAccount: ChannelAccount = {
-				...account,
-				proxyUrl: effectiveProxy,
-			};
-
-			// 2. 若已知 profileId，直接请求个人全量资料验证
-			if (profileId) {
+				// 3. 通用探测：通过附近检索确认会话有效性并探知自身账号信息（超时 4000ms）
 				try {
-					const profileRes = await this.client.request<{
+					const locationRes = await this.client.request<{
 						results?: RawScruffProfile[];
 					}>({
 						account: verifiedAccount,
 						method: "GET",
-						path: "/app/profile",
-						query: { api_version: 2, target: profileId },
-						timeoutMs: 12000,
+						path: "/app/location",
+						query: {
+							latitude: 0,
+							limit: 5,
+							longitude: 0,
+							offset: 0,
+						},
+						timeoutMs: 4000,
 					});
 
-					const p = profileRes.results?.[0];
-					if (p) {
+					const first = locationRes.results?.[0];
+					if (first) {
 						const thumbKey =
-							p.avatar_thumbnail_key ||
-							p.profile_photos?.[0]?.thumbnail_key;
+							first.avatar_thumbnail_key ||
+							first.profile_photos?.[0]?.thumbnail_key;
 						const avatarUrl = buildScruffPhotoUrl(
 							thumbKey,
 							"thumbnail",
 						);
 						return {
 							avatarUrl,
-							displayName: p.name || account.accountIdentifier,
-							profileId: String(p.id),
+							displayName:
+								first.name || account.accountIdentifier,
+							profileId: String(first.id),
 							proxyUrl: effectiveProxy,
-							rawPayload: p,
+							rawPayload: first,
 							valid: true,
 						};
 					}
-				} catch {
-					// 个人资料拉取失败时尝试通过附近网格探测
+				} catch (err) {
+					if (isPlatformKnown) {
+						return {
+							displayName:
+								account.name || account.accountIdentifier,
+							profileId,
+							proxyUrl: effectiveProxy,
+							valid: true,
+						};
+					}
+					throw err;
 				}
-			}
 
-			// 3. 通用探测：通过附近检索确认会话有效性并探知自身账号信息
-			const locationRes = await this.client.request<{
-				results?: RawScruffProfile[];
-			}>({
-				account: verifiedAccount,
-				method: "GET",
-				path: "/app/location",
-				query: { latitude: 0, limit: 5, longitude: 0, offset: 0 },
-				timeoutMs: 12000,
-			});
-
-			const first = locationRes.results?.[0];
-			if (first) {
-				const thumbKey =
-					first.avatar_thumbnail_key ||
-					first.profile_photos?.[0]?.thumbnail_key;
-				const avatarUrl = buildScruffPhotoUrl(thumbKey, "thumbnail");
 				return {
-					avatarUrl,
-					displayName: first.name || account.accountIdentifier,
-					profileId: String(first.id),
+					displayName: account.name || account.accountIdentifier,
 					proxyUrl: effectiveProxy,
-					rawPayload: first,
 					valid: true,
 				};
+			} catch (err) {
+				const errMsg = err instanceof Error ? err.message : String(err);
+				return { errorMessage: errMsg, valid: false };
 			}
+		})();
 
-			return {
-				displayName: account.name || account.accountIdentifier,
-				proxyUrl: effectiveProxy,
-				valid: true,
-			};
-		} catch (err) {
-			const errMsg = err instanceof Error ? err.message : String(err);
-			return { errorMessage: errMsg, valid: false };
-		}
+		return Promise.race([verifyPromise, timeoutPromise]);
 	}
 }

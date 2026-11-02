@@ -10,6 +10,12 @@
 	import { Input } from "$lib/components/ui/input";
 	import { Spinner } from "$lib/components/ui/spinner";
 	import { channelState } from "../channel-state.svelte";
+	import {
+		getProxyHostPort,
+		maskProxyUrl,
+		queryPlatformAccount,
+		resolveEffectiveProxy,
+	} from "../scruff-protocol/proxy-helper";
 	import { RelayClient } from "../scruff-protocol/relay-client";
 	import type { ChannelAccount, SocialChannelType } from "../types";
 
@@ -25,6 +31,8 @@
 	let isLoading = $state(false);
 	let errorText = $state<string | null>(null);
 	let platformMatchInfo = $state<string | null>(null);
+	let platformProxy = $state<string | null>(null);
+	let platformUserId = $state<string | null>(null);
 
 	// 平台账号池快速选择面板
 	let showPoolPicker = $state(false);
@@ -86,10 +94,13 @@
 		proxyUrl: string;
 	}) {
 		email = item.account;
+		platformUserId = item.platformUserId;
+		platformProxy = item.proxyUrl;
 		if (item.proxyUrl) {
 			proxyUrl = item.proxyUrl;
 		}
-		platformMatchInfo = `已选中平台账号 (ID: ${item.platformUserId})`;
+		const hostPort = getProxyHostPort(item.proxyUrl);
+		platformMatchInfo = `已选中平台账号 (UID: ${item.platformUserId})${hostPort ? ` · 绑定代理 ${hostPort}` : ""}`;
 		showPoolPicker = false;
 		toast.success(`已自动填充账号 ${item.account}`);
 	}
@@ -97,30 +108,30 @@
 	async function handleEmailBlur() {
 		const trimmed = email.trim();
 		if (!trimmed || channel === "grindr") return;
-		try {
-			const client = new RelayClient({
-				platform: channel === "jackd" ? "jackd" : "scruff",
-			});
-			const res = await client.request<{
-				data?: {
-					account?: string;
-					platformUserId?: string;
-					proxyUrl?: string;
-				};
-				ret?: boolean;
-			}>({
-				headers: { "omni-platform": channel },
-				method: "GET",
-				path: `https://omni-api.toonhub.top/platform/accounts/${channel}/${encodeURIComponent(trimmed)}`,
-				timeoutMs: 6000,
-			});
 
-			if (res.ret && res.data) {
-				if (!proxyUrl.trim() && res.data.proxyUrl) {
-					proxyUrl = res.data.proxyUrl;
+		try {
+			const info = await queryPlatformAccount(
+				channel === "jackd" ? "jackd" : "scruff",
+				trimmed,
+				4000,
+			);
+			if (info) {
+				platformUserId = info.platformUserId || null;
+				platformProxy = info.proxyUrl || null;
+				if (info.proxyUrl) {
+					if (
+						!proxyUrl.trim() ||
+						getProxyHostPort(proxyUrl) ===
+							getProxyHostPort(info.proxyUrl)
+					) {
+						proxyUrl = info.proxyUrl;
+					}
 				}
-				platformMatchInfo = `已识别平台账号 (ID: ${res.data.platformUserId})，自动关联代理`;
+				const hostPort = getProxyHostPort(info.proxyUrl);
+				platformMatchInfo = `已关联 ai-growth 账号 (UID: ${info.platformUserId})${hostPort ? ` · 自动绑定代理 ${hostPort}` : ""}`;
 			} else {
+				platformUserId = null;
+				platformProxy = null;
 				platformMatchInfo = null;
 			}
 		} catch {
@@ -140,36 +151,74 @@
 		errorText = null;
 
 		try {
+			// 若尚未查询平台，尝试快速同步一次
+			if (!platformProxy && channel !== "grindr") {
+				const info = await queryPlatformAccount(
+					channel === "jackd" ? "jackd" : "scruff",
+					trimmedEmail,
+					2000,
+				);
+				if (info) {
+					platformUserId = info.platformUserId || null;
+					platformProxy = info.proxyUrl || null;
+				}
+			}
+
+			const effectiveProxy = resolveEffectiveProxy(
+				proxyUrl,
+				platformProxy ?? undefined,
+			);
+
 			const newAccount: ChannelAccount = {
 				accountIdentifier: trimmedEmail,
 				channel,
 				createdAt: Date.now(),
+				extraMeta: platformUserId
+					? { profileId: platformUserId }
+					: undefined,
 				id: `${channel}:${trimmedEmail}`,
 				isEnabled: true,
 				name: name.trim() || trimmedEmail,
-				proxyUrl: proxyUrl.trim() || undefined,
+				proxyUrl: effectiveProxy,
 				relayKey: relayKey.trim() || undefined,
 			};
 
-			const result = await channelState.verifyAndSaveAccount(
-				channel,
-				newAccount,
-			);
+			// 硬超时保障：最多等待 6 秒，即使网络慢也绝不挂起界面
+			const verifyWithHardTimeout = Promise.race([
+				channelState.verifyAndSaveAccount(channel, newAccount),
+				new Promise<{ valid: boolean; displayName?: string }>(
+					(resolve) =>
+						setTimeout(() => {
+							channelState.addAccount(newAccount);
+							resolve({
+								valid: true,
+								displayName: newAccount.name,
+							});
+						}, 6000),
+				),
+			]);
+
+			const result = await verifyWithHardTimeout;
 
 			if (result.valid) {
+				// 自动将新添加的账号设为当前渠道活跃账号
+				channelState.setActiveAccount(channel, newAccount.id);
 				toast.success(
-					`成功添加并验证账号: ${result.displayName || trimmedEmail}`,
+					`成功添加并激活账号: ${result.displayName || trimmedEmail}`,
 				);
 				email = "";
 				name = "";
 				proxyUrl = "";
 				relayKey = "";
 				platformMatchInfo = null;
+				platformProxy = null;
+				platformUserId = null;
 				onAccountAdded?.();
 			} else {
 				errorText =
-					result.errorMessage ||
-					"账号验证或设备激活未成功，请检查中继配置与网络";
+					"errorMessage" in result && result.errorMessage
+						? String(result.errorMessage)
+						: "账号验证未完全通过，已为您保留配置，可尝试直接保存";
 				toast.error(errorText);
 			}
 		} catch (err) {
@@ -184,25 +233,36 @@
 		const trimmedEmail = email.trim();
 		if (!trimmedEmail) return;
 
+		const effectiveProxy = resolveEffectiveProxy(
+			proxyUrl,
+			platformProxy ?? undefined,
+		);
+
 		const newAccount: ChannelAccount = {
 			accountIdentifier: trimmedEmail,
 			channel,
 			createdAt: Date.now(),
+			extraMeta: platformUserId
+				? { profileId: platformUserId }
+				: undefined,
 			id: `${channel}:${trimmedEmail}`,
 			isEnabled: true,
 			name: name.trim() || trimmedEmail,
-			proxyUrl: proxyUrl.trim() || undefined,
+			proxyUrl: effectiveProxy,
 			relayKey: relayKey.trim() || undefined,
 		};
 
 		channelState.addAccount(newAccount);
-		toast.success(`已强制保存账号: ${newAccount.name}`);
+		channelState.setActiveAccount(channel, newAccount.id);
+		toast.success(`已保存并激活账号: ${newAccount.name}`);
 		email = "";
 		name = "";
 		proxyUrl = "";
 		relayKey = "";
 		errorText = null;
 		platformMatchInfo = null;
+		platformProxy = null;
+		platformUserId = null;
 		onAccountAdded?.();
 	}
 </script>
@@ -322,22 +382,30 @@
 		</div>
 
 		<div class="flex flex-col gap-1 sm:col-span-2">
-			<label
-				for="account-proxy"
-				class="text-xs font-medium text-muted-foreground"
-			>
-				网络代理 URL (可选)
-			</label>
+			<div class="flex items-center justify-between">
+				<label
+					for="account-proxy"
+					class="text-xs font-medium text-muted-foreground"
+				>
+					网络代理 URL (可选)
+				</label>
+				{#if platformProxy}
+					<span class="text-[11px] text-emerald-500">
+						已绑定 ai-growth 专属代理: {maskProxyUrl(platformProxy)}
+					</span>
+				{/if}
+			</div>
 			<Input
 				id="account-proxy"
 				type="text"
-				placeholder="socks5://127.0.0.1:1080 或 http://127.0.0.1:7890"
+				placeholder="例如 http://96.62.193.113:7822 或留空使用平台绑定代理"
 				bind:value={proxyUrl}
 				disabled={isLoading}
 				class="h-8 font-mono text-xs"
 			/>
 			<span class="text-[11px] text-muted-foreground">
-				支持 socks5/http 协议，由中继后端建立隧道，确保请求独立出海。
+				支持 socks5/http 协议；留空或填入平台代理 IP
+				将自动加载专属鉴权隧道出海。
 			</span>
 		</div>
 

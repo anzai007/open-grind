@@ -73,7 +73,11 @@ export const SOCIAL_SERVICES: Record<
 	10: { label: "TikTok", baseUrl: "https://www.tiktok.com/@" },
 };
 
-export function buildScruffPhotoUrl(photoKey: unknown): string {
+export function buildScruffPhotoUrl(
+	photoKey: unknown,
+	_variant?: "thumbnail" | "fullsize",
+): string {
+	void _variant;
 	if (!photoKey || typeof photoKey !== "string") return "";
 	const key = photoKey.trim();
 	if (!key) return "";

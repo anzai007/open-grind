@@ -11,6 +11,7 @@
 	import { Button } from "$lib/components/ui/button";
 	import { Spinner } from "$lib/components/ui/spinner";
 	import { channelState } from "../channel-state.svelte";
+	import { maskProxyUrl } from "../scruff-protocol/proxy-helper";
 	import type { ChannelAccount, SocialChannelType } from "../types";
 
 	let { channel }: { channel: SocialChannelType } = $props();
@@ -117,8 +118,18 @@
 								<div
 									class="mt-0.5 flex items-center gap-1 truncate font-mono text-[10px] text-muted-foreground/80"
 								>
-									<GlobeIcon class="size-3 shrink-0" />
-									<span class="truncate">{acc.proxyUrl}</span>
+									<GlobeIcon
+										class="size-3 shrink-0 text-emerald-500"
+									/>
+									<span class="truncate"
+										>{maskProxyUrl(acc.proxyUrl)}</span
+									>
+									{#if acc.proxyUrl.includes("@")}
+										<span
+											class="font-sans text-[9px] text-emerald-500"
+											>[专属隧道]</span
+										>
+									{/if}
 								</div>
 							{/if}
 						</div>
