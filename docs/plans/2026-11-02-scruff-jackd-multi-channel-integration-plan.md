@@ -285,3 +285,18 @@ export interface UniversalUserProfile {
     - 封装 `src/lib/channel/providers/grindr-provider.ts` 零破坏性 Grindr 适配器；
     - 建立 `src/lib/channel/channel-state.svelte.ts` 全局响应式状态机（支持 LocalStorage 持久化与账号隔离）；
     - 编写并全部通过 7 项单元测试（`channel-state.test.ts`、`provider.test.ts`）。
+  - **完成 Phase 2 Scruff 与 Jack'd 传输网关与账号池**：
+    - 落地 `RelayClient` 底层网关，无缝集成 `networkLoggerState` 请求监控；
+    - 封装 `ScruffBaseProvider`，以及 `ScruffProvider`（Woof 交互）与 `JackdProvider`（Wave 交互、`flavor=jackd` 头像上传）；
+    - 编写多渠道账号池管理弹窗 `ChannelAccountsDialog`、新增账号表单 `AddAccountForm`、账号列表与快捷切换卡片 `ChannelAccountList` 以及中继网关配置面板 `RelaySettingsTab`。
+  - **完成 Phase 3 用户发现与个人资料适配**：
+    - 落地 `channelGridState` 统一网格增量分页与触底加载状态机；
+    - 落地 `ChannelSwitcher` 顶部渠道切换组件（Grindr、Scruff、Jack'd 动态切换）；
+    - 落地 `ChannelGrid` 多渠道附近网格流卡片；
+    - 落地 `UniversalProfileDialog` 通用资料卡弹窗，支持多图预览（`ProfilePhotoCarousel`）、身体数据与社媒外链（`ProfileStatsGrid`）以及 Woof / Wave / Tap 统一交互按钮；
+    - 编写全套测试（21 项单元测试全部通过）。
+  - **排查并解决 macOS WebKit `Load failed` CORS 问题**：
+    - 定位根因：macOS WebKit WebView 发起自定义 Header 请求触发 `OPTIONS` 预检，但中继服务器缺少 CORS 响应头且未带 `omni-platform` 报 500；
+    - 新增 Rust 原生命令 `relay_http_request`（基于 `wreq`），在 Tauri 环境下直接通过 Rust 原生网关发送中继请求，彻底绕过 WebKit CORS 限制；
+    - 在 Node/Vitest 环境下保持透明降级 fallback 到标准 fetch；
+    - 优化中继连通性测试路径为 `/_private/im/conversations?platform=scruff&user=ping_check`，验证通过。
