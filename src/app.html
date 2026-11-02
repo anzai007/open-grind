@@ -73,6 +73,19 @@
 			(function () {
 				try {
 					if (
+						(window.__TAURI_INTERNALS__ ||
+							window.__OPEN_GRIND_PLATFORM) &&
+						!window.isTauri
+					) {
+						window.isTauri = true;
+					}
+				} catch (e) {}
+			})();
+		</script>
+		<script>
+			(function () {
+				try {
+					if (
 						window.CSS &&
 						CSS.supports &&
 						CSS.supports(

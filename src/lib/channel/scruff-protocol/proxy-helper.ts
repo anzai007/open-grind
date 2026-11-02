@@ -20,7 +20,7 @@ export function getProxyHostPort(proxyUrl?: string): string {
 		return parsed.host;
 	} catch {
 		const match = proxyUrl.trim().match(/@?([a-zA-Z0-9.-]+:\d+)/);
-		return match ? match[1] : proxyUrl.trim();
+		return match?.[1] ? match[1] : proxyUrl.trim();
 	}
 }
 

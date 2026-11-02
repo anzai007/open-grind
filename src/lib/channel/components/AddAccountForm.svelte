@@ -156,11 +156,14 @@
 				const info = await queryPlatformAccount(
 					channel === "jackd" ? "jackd" : "scruff",
 					trimmedEmail,
-					2000,
+					3500,
 				);
 				if (info) {
 					platformUserId = info.platformUserId || null;
 					platformProxy = info.proxyUrl || null;
+					if (info.proxyUrl && !proxyUrl.trim()) {
+						proxyUrl = info.proxyUrl;
+					}
 				}
 			}
 

@@ -63,7 +63,7 @@ describe("RelayClient", () => {
 
 		// Verify logger recorded the request
 		expect(networkLoggerState.httpLogs).toHaveLength(1);
-		expect(networkLoggerState.httpLogs[0].status).toBe(200);
+		expect(networkLoggerState.httpLogs[0]?.status).toBe(200);
 	});
 
 	it("correctly sets omni-platform to jackd for Jack'd requests", async () => {
@@ -105,7 +105,7 @@ describe("RelayClient", () => {
 		);
 
 		// Verify failed in logger
-		expect(networkLoggerState.httpLogs[0].error).toBe("Token expired");
+		expect(networkLoggerState.httpLogs[0]?.error).toBe("Token expired");
 	});
 
 	it("ping and testConnection return ok: true on successful relay response", async () => {

@@ -41,6 +41,33 @@ export const DEFAULT_RELAY_BASE_URL = "https://omni-relay.toonhub.top";
 export const DEFAULT_RELAY_KEY =
 	"omni__nNniWrIV4NTnu1lxBCE_DuwQpj6qqBIAPwWzoWwx8A";
 
+export function isTauriEnvironment(): boolean {
+	if (typeof window === "undefined") return false;
+	const win = window as unknown as {
+		isTauri?: boolean;
+		__TAURI_INTERNALS__?: { invoke?: unknown };
+		__TAURI__?: unknown;
+		__OPEN_GRIND_PLATFORM?: string;
+	};
+	return Boolean(
+		win.__OPEN_GRIND_PLATFORM ||
+		win.__TAURI_INTERNALS__ ||
+		win.__TAURI__ ||
+		win.isTauri ||
+		isTauri(),
+	);
+}
+
+function toBrowserSafeUrl(url: string): string {
+	// In test environment (Node/Bun/Vitest), use the absolute upstream URL directly
+	if (typeof process !== "undefined" && process.env?.VITEST) {
+		return url;
+	}
+	return url
+		.replace(/^https:\/\/omni-relay\.toonhub\.top/i, "/_omni_relay")
+		.replace(/^https:\/\/omni-api\.toonhub\.top/i, "/_omni_api");
+}
+
 export class RelayClient {
 	readonly platform: "scruff" | "jackd";
 	readonly relayBaseUrl: string;
@@ -74,13 +101,20 @@ export class RelayClient {
 			headers["omni-proxy"] = options.account.proxyUrl.trim();
 		}
 
+		const cleanHeaders: Record<string, string> = {};
+		for (const [k, v] of Object.entries(headers)) {
+			if (v !== undefined && v !== null && String(v).trim().length > 0) {
+				cleanHeaders[k] = String(v).trim();
+			}
+		}
+
 		let reqBody: string | undefined;
 		if (options.body !== undefined && options.body !== null) {
 			if (typeof options.body === "string") {
 				reqBody = options.body;
 			} else {
 				reqBody = JSON.stringify(options.body);
-				headers["Content-Type"] = "application/json";
+				cleanHeaders["Content-Type"] = "application/json";
 			}
 		}
 
@@ -102,17 +136,13 @@ export class RelayClient {
 		const logEntry = networkLoggerState.startHttp({
 			body: options.body,
 			headers: {
-				...headers,
+				...cleanHeaders,
 				"omni-key": "******", // mask in logger for safety
-				...(headers["omni-proxy"]
+				...(cleanHeaders["omni-proxy"]
 					? { "omni-proxy": "[PROXY CONFIGURED]" }
 					: {}),
 			},
 			method,
-			queryParams:
-				Object.keys(logQueryParams).length > 0
-					? logQueryParams
-					: undefined,
 			url: fullUrl,
 		});
 
@@ -122,13 +152,13 @@ export class RelayClient {
 			let resStatus: number;
 			let text: string;
 
-			if (isTauri()) {
+			if (isTauriEnvironment()) {
 				const res = await invoke<RelayHttpResponse>(
 					"relay_http_request",
 					{
 						req: {
 							body: reqBody,
-							headers,
+							headers: cleanHeaders,
 							method,
 							timeoutMs,
 							url: fullUrl,
@@ -138,15 +168,16 @@ export class RelayClient {
 				resStatus = res.status;
 				text = res.body;
 			} else {
+				const browserUrl = toBrowserSafeUrl(fullUrl);
 				const controller = new AbortController();
 				const timeoutId = setTimeout(
 					() => controller.abort(),
 					timeoutMs,
 				);
 				try {
-					const res = await fetch(fullUrl, {
+					const res = await fetch(browserUrl, {
 						body: reqBody,
-						headers,
+						headers: cleanHeaders,
 						method,
 						signal: controller.signal,
 					});
@@ -172,21 +203,36 @@ export class RelayClient {
 
 			if (isSuccess) {
 				networkLoggerState.completeHttp(logEntry.id, {
-					body: data,
+					responseBody: data,
 					status: resStatus,
 				});
 				return data as T;
 			}
 
-			const errMsg =
-				(typeof recordData?.message === "string" &&
-					recordData.message) ||
-				(typeof recordData?.error === "string" && recordData.error) ||
-				`Relay error (${resStatus})`;
+			let errMsg: string;
+			if (typeof recordData?.message === "string" && recordData.message) {
+				errMsg = recordData.message;
+			} else if (
+				typeof recordData?.error === "string" &&
+				recordData.error
+			) {
+				errMsg = recordData.error;
+			} else if (
+				typeof recordData?.error === "object" &&
+				recordData.error &&
+				"message" in recordData.error &&
+				typeof (recordData.error as Record<string, unknown>).message ===
+					"string"
+			) {
+				errMsg = (recordData.error as Record<string, unknown>)
+					.message as string;
+			} else {
+				errMsg = `Relay error (${resStatus})`;
+			}
 
 			networkLoggerState.failHttp(logEntry.id, {
-				body: data,
 				error: errMsg,
+				responseBody: data,
 				status: resStatus,
 			});
 

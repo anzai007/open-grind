@@ -2,6 +2,8 @@
 	import { page } from "$app/state";
 	import { onDestroy, untrack } from "svelte";
 
+	import { channelState } from "$lib/channel/channel-state.svelte";
+	import ChannelConversationsView from "$lib/channel/components/ChannelConversationsView.svelte";
 	import {
 		getOrCreateConversationsState,
 		setConversations,
@@ -73,7 +75,18 @@
 	/>
 {/snippet}
 
-{#if mobile.current}
+{#if channelState.activeChannel !== "grindr"}
+	<main
+		class="flex h-dvh w-full flex-1 flex-col pt-(--safe-area-top) pb-nav-clear"
+	>
+		<div
+			class="mx-auto flex h-full w-full max-w-300 flex-1 overflow-hidden"
+		>
+			<ChannelConversationsView />
+		</div>
+	</main>
+	<NavBar ourProfileId={data.ourProfileId} />
+{:else if mobile.current}
 	<LiveStack
 		basePath="/chat"
 		keyOf={(target) => target.params?.conversationId ?? null}
@@ -141,7 +154,7 @@
 	<NavBar ourProfileId={data.ourProfileId} />
 {/if}
 
-{#if conversationId !== null}
+{#if channelState.activeChannel === "grindr" && conversationId !== null}
 	{#key conversationId}
 		<ComposerSheets {conversationId} />
 	{/key}

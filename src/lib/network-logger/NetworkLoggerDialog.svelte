@@ -321,13 +321,15 @@
 				{#if networkLoggerState.activeTab === "http"}
 					<HttpLogList
 						logs={filteredHttpLogs}
-						selectedId={networkLoggerState.selectedHttpId}
+						selectedId={networkLoggerState.selectedHttpId ??
+							undefined}
 						onSelect={selectHttp}
 					/>
 				{:else}
 					<WsLogList
 						logs={filteredWsLogs}
-						selectedId={networkLoggerState.selectedWsId}
+						selectedId={networkLoggerState.selectedWsId ??
+							undefined}
 						onSelect={selectWs}
 					/>
 				{/if}

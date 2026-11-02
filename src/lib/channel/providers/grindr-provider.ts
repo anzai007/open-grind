@@ -3,8 +3,9 @@ import { signedInProfileId } from "$lib/api/current-session";
 import { sendTap } from "$lib/api/interest/taps";
 import { getConversations } from "$lib/api/messaging/conversations";
 import { getConversationMessages } from "$lib/api/messaging/messages";
-import { getProfiles } from "$lib/api/users/profiles";
+import { getProfile } from "$lib/api/users/profiles";
 import { encodeGeohash } from "$lib/model/geohash";
+import { TapType } from "$lib/model/interest/taps";
 import { sexualPositions } from "$lib/model/users/profiles";
 import { profileMediaUrl } from "$lib/util/media";
 import type {
@@ -42,21 +43,9 @@ export class GrindrProvider implements SocialChannelProvider {
 		const now = Date.now();
 
 		for (const entry of cascade.items) {
-			if (entry.type === "fullProfile") {
+			if (entry.type === "full_profile_v1") {
 				const p = entry.data;
-				const avatarThumbnail = p.profileImageMediaHash
-					? profileMediaUrl({
-							mediaHash: p.profileImageMediaHash,
-							size: "thumb",
-						})
-					: "";
-				const avatarFull = p.profileImageMediaHash
-					? profileMediaUrl({
-							mediaHash: p.profileImageMediaHash,
-							size: "full",
-						})
-					: "";
-
+				const avatarUrl = p.primaryImageUrl || "";
 				const isOnline = p.onlineUntil ? p.onlineUntil > now : false;
 
 				items.push({
@@ -64,18 +53,19 @@ export class GrindrProvider implements SocialChannelProvider {
 					id: String(p.profileId),
 					displayName: p.displayName || `User ${p.profileId}`,
 					age: p.age,
-					avatarThumbnailUrl: avatarThumbnail,
-					avatarFullUrl: avatarFull,
-					distanceMeters: p.distance,
+					avatarThumbnailUrl: avatarUrl,
+					avatarFullUrl: avatarUrl,
+					distanceMeters: p.distanceMeters ?? undefined,
 					distanceText:
-						p.distance !== null && p.distance !== undefined
-							? `${(p.distance / 1000).toFixed(1)} km`
+						p.distanceMeters !== null &&
+						p.distanceMeters !== undefined
+							? `${(p.distanceMeters / 1000).toFixed(1)} km`
 							: undefined,
 					isOnline,
-					isFavorite: Boolean(p.isFavorite),
-					unreadCount: p.unreadCount ?? 0,
-					headline: p.aboutMe || undefined,
-					tags: p.profileTags ?? [],
+					isFavorite: Boolean(p.favorite),
+					unreadCount: 0,
+					headline: undefined,
+					tags: [],
 					rawPayload: p,
 				});
 			}
@@ -96,8 +86,7 @@ export class GrindrProvider implements SocialChannelProvider {
 			throw new Error(`Invalid Grindr profile ID: ${userId}`);
 		}
 
-		const profiles = await getProfiles([numId]);
-		const profile = profiles[0];
+		const profile = await getProfile(numId);
 		if (!profile) {
 			throw new Error(`Grindr profile not found: ${userId}`);
 		}
@@ -205,22 +194,26 @@ export class GrindrProvider implements SocialChannelProvider {
 
 		const items: UniversalConversation[] = [];
 		for (const entry of response.entries) {
-			if (entry.type === "conversation") {
+			if (
+				entry.type === "full_conversation_v1" ||
+				entry.type === "partial_conversation_v1"
+			) {
 				const conv = entry.data;
+				const other = conv.participants[0];
 				items.push({
 					channel: "grindr",
 					conversationId: conv.conversationId,
-					targetUserId: String(conv.recipientProfileId),
+					targetUserId: other ? String(other.profileId) : "",
 					targetUserName:
-						conv.name || `User ${conv.recipientProfileId}`,
-					targetAvatarUrl: conv.previewImageMediaHash
+						conv.name || (other ? `User ${other.profileId}` : ""),
+					targetAvatarUrl: other?.primaryMediaHash
 						? profileMediaUrl({
-								mediaHash: conv.previewImageMediaHash,
+								mediaHash: other.primaryMediaHash,
 								size: "thumb",
 							})
 						: undefined,
-					lastMessageText: conv.lastMessage?.text || "",
-					lastMessageTimestamp: conv.lastMessage?.timestamp || 0,
+					lastMessageText: conv.preview?.text || "",
+					lastMessageTimestamp: conv.lastActivityTimestamp || 0,
 					unreadCount: conv.unreadCount ?? 0,
 					rawPayload: conv,
 				});
@@ -244,18 +237,25 @@ export class GrindrProvider implements SocialChannelProvider {
 			pageKey: params?.beforeId,
 		});
 
-		return response.messages.map((m) => ({
-			channel: "grindr",
-			id: m.messageId,
-			conversationId,
-			senderId: String(m.senderProfileId),
-			recipientId: String(m.recipientProfileId),
-			isFromMe: false, // In practice, determined by comparing with current user id
-			text: m.body?.text || "",
-			mediaUrl: m.body?.type === "image" ? m.body.url : undefined,
-			timestamp: m.timestamp,
-			rawPayload: m,
-		}));
+		const myId = await signedInProfileId();
+		return response.messages.map((m) => {
+			const bodyObj = m.body as Record<string, unknown> | null;
+			const text = typeof bodyObj?.text === "string" ? bodyObj.text : "";
+			const mediaUrl =
+				typeof bodyObj?.url === "string" ? bodyObj.url : undefined;
+			return {
+				channel: "grindr",
+				id: m.messageId,
+				conversationId,
+				senderId: String(m.senderId),
+				recipientId: "",
+				isFromMe: myId ? m.senderId === myId : false,
+				text,
+				mediaUrl,
+				timestamp: m.timestamp,
+				rawPayload: m,
+			};
+		});
 	}
 
 	async sendMessage(params: SendMessageParams): Promise<UniversalMessage> {
@@ -283,7 +283,7 @@ export class GrindrProvider implements SocialChannelProvider {
 			throw new Error(`Invalid target user ID: ${targetUserId}`);
 		}
 
-		await sendTap({ recipientId: numId, tapType: "Friendly" });
+		await sendTap({ recipientId: numId, tapType: TapType.Friendly });
 
 		return {
 			success: true,

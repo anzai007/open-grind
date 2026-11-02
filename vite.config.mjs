@@ -34,6 +34,20 @@ export default defineConfig(async ({ command }) => ({
 			// 3. tell Vite to ignore watching `src-tauri`
 			ignored: ["**/src-tauri/**"],
 		},
+		proxy: {
+			"/_omni_relay": {
+				target: "https://omni-relay.toonhub.top",
+				changeOrigin: true,
+				secure: true,
+				rewrite: (path) => path.replace(/^\/_omni_relay/, ""),
+			},
+			"/_omni_api": {
+				target: "https://omni-api.toonhub.top",
+				changeOrigin: true,
+				secure: true,
+				rewrite: (path) => path.replace(/^\/_omni_api/, ""),
+			},
+		},
 		fs: {
 			allow: [
 				searchForWorkspaceRoot(process.cwd()),

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import ChatTeardropTextIcon from "phosphor-svelte/lib/ChatTeardropTextIcon";
 	import CheckIcon from "phosphor-svelte/lib/CheckIcon";
 	import FireIcon from "phosphor-svelte/lib/FireIcon";
@@ -12,6 +13,7 @@
 	import { Button } from "$lib/components/ui/button";
 	import * as Dialog from "$lib/components/ui/dialog";
 	import { Spinner } from "$lib/components/ui/spinner";
+	import { channelChatState } from "../channel-chat-state.svelte";
 	import { channelState } from "../channel-state.svelte";
 	import ProfilePhotoCarousel from "./ProfilePhotoCarousel.svelte";
 	import ProfileStatsGrid from "./ProfileStatsGrid.svelte";
@@ -49,6 +51,17 @@
 		} finally {
 			isInteracting = false;
 		}
+	}
+
+	function handleStartChat() {
+		if (!user) return;
+		channelChatState.openChatWithUser({
+			id: user.id,
+			displayName: user.displayName,
+			avatarThumbnailUrl: user.photos?.[0]?.thumbnailUrl,
+		});
+		channelState.closeProfile();
+		void goto("/chat");
 	}
 </script>
 
@@ -185,8 +198,7 @@
 			>
 				<Button
 					variant="outline"
-					onclick={() =>
-						toast.info("消息发送会话系统将于 Phase 4 正式接入")}
+					onclick={handleStartChat}
 					class="h-9 flex-1 gap-2 text-xs"
 				>
 					<ChatTeardropTextIcon class="size-4" />

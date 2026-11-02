@@ -217,28 +217,43 @@ export class ChannelState {
 
 			const savedAccounts = storage.getItem(STORAGE_KEY_ACCOUNTS);
 			if (savedAccounts) {
-				const parsed = JSON.parse(savedAccounts);
+				const parsed = JSON.parse(savedAccounts) as Record<
+					string,
+					unknown
+				>;
 				if (parsed && typeof parsed === "object") {
 					this.accounts.grindr = Array.isArray(parsed.grindr)
-						? parsed.grindr
+						? (parsed.grindr as ChannelAccount[])
 						: [];
 					this.accounts.scruff = Array.isArray(parsed.scruff)
-						? parsed.scruff
+						? (parsed.scruff as ChannelAccount[])
 						: [];
 					this.accounts.jackd = Array.isArray(parsed.jackd)
-						? parsed.jackd
+						? (parsed.jackd as ChannelAccount[])
 						: [];
 				}
 			}
 
 			const savedActive = storage.getItem(STORAGE_KEY_ACTIVE_ACCOUNTS);
 			if (savedActive) {
-				const parsed = JSON.parse(savedActive);
+				const parsed = JSON.parse(savedActive) as Record<
+					string,
+					unknown
+				>;
 				if (parsed && typeof parsed === "object") {
 					this.activeAccountIds = {
-						grindr: parsed.grindr ?? null,
-						scruff: parsed.scruff ?? null,
-						jackd: parsed.jackd ?? null,
+						grindr:
+							typeof parsed.grindr === "string"
+								? parsed.grindr
+								: null,
+						scruff:
+							typeof parsed.scruff === "string"
+								? parsed.scruff
+								: null,
+						jackd:
+							typeof parsed.jackd === "string"
+								? parsed.jackd
+								: null,
 					};
 				}
 			}

@@ -15,48 +15,12 @@ import {
 	type UniversalGridUser,
 	type UniversalInteractionResult,
 	type UniversalMessage,
-	type UniversalPhoto,
-	type UniversalSocialLink,
 	type UniversalUserProfile,
 } from "../types";
+import { parseRawScruffProfile, type RawScruffProfile } from "./profile-parser";
 import { queryPlatformAccount, resolveEffectiveProxy } from "./proxy-helper";
 import { RelayClient } from "./relay-client";
-import {
-	BODY_HAIR_LABELS,
-	buildScruffPhotoUrl,
-	COMMUNITY_LABELS,
-	ETHNICITY_LABELS,
-	RELATIONSHIP_STATUS_LABELS,
-	SEX_PREFERENCE_LABELS,
-	SOCIAL_SERVICES,
-} from "./scruff-options";
-
-export interface RawScruffProfile {
-	id: number | string;
-	name?: string;
-	age?: number;
-	about?: string;
-	avatar_thumbnail_key?: string;
-	avatar_fullsize_key?: string;
-	profile_photos?: Array<{
-		id?: string | number;
-		thumbnail_key?: string;
-		fullsize_key?: string;
-	}>;
-	distance?: number;
-	logged_in?: boolean;
-	last_active?: number | string;
-	height?: number;
-	weight_kg?: number;
-	ethnicity?: number;
-	body_hair?: number;
-	sex_preferences?: number;
-	relationship_status?: number;
-	community?: number[];
-	community_interests?: number[];
-	hashtags?: string[];
-	urls?: Array<{ service: number; url: string }>;
-}
+import { buildScruffPhotoUrl } from "./scruff-options";
 
 export abstract class ScruffProtocolBaseProvider implements SocialChannelProvider {
 	abstract readonly channel: SocialChannelType;
@@ -175,18 +139,18 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 		account?: ChannelAccount,
 	): Promise<UniversalUserProfile> {
 		const res = await this.client.request<{
-			results?: RawScruffProfile[];
 			data?: RawScruffProfile[];
+			results?: RawScruffProfile[];
 		}>({
-			path: "/app/profile",
-			method: "GET",
-			query: {
-				target: userId,
-				api_version: 2,
-				thumbnail_constraint: "-thumbnail-300",
-				fullsize_constraint: "-fullsize-400K",
-			},
 			account,
+			method: "GET",
+			path: "/app/profile",
+			query: {
+				api_version: 2,
+				fullsize_constraint: "-fullsize-400K",
+				target: userId,
+				thumbnail_constraint: "-thumbnail-300",
+			},
 		});
 
 		const list = res.results || res.data || [];
@@ -195,155 +159,92 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 			throw new Error(`${this.meta.name} profile not found: ${userId}`);
 		}
 
-		const photos: UniversalPhoto[] = [];
-		if (p.profile_photos && Array.isArray(p.profile_photos)) {
-			for (const ph of p.profile_photos) {
-				const thumb = buildScruffPhotoUrl(
-					ph.thumbnail_key,
-					"thumbnail",
-				);
-				const full = buildScruffPhotoUrl(ph.fullsize_key, "fullsize");
-				if (thumb || full) {
-					photos.push({
-						id: String(ph.id || ph.thumbnail_key),
-						thumbnailUrl: thumb,
-						fullsizeUrl: full || thumb,
-					});
-				}
-			}
-		}
-
-		if (
-			photos.length === 0 &&
-			(p.avatar_thumbnail_key || p.avatar_fullsize_key)
-		) {
-			const thumb = buildScruffPhotoUrl(
-				p.avatar_thumbnail_key,
-				"thumbnail",
-			);
-			const full = buildScruffPhotoUrl(
-				p.avatar_fullsize_key || p.avatar_thumbnail_key,
-				"fullsize",
-			);
-			photos.push({
-				thumbnailUrl: thumb,
-				fullsizeUrl: full,
-				isAvatar: true,
-			});
-		}
-
-		const socialLinks: UniversalSocialLink[] = [];
-		if (p.urls && Array.isArray(p.urls)) {
-			for (const u of p.urls) {
-				const opt = SOCIAL_SERVICES[u.service];
-				if (opt && u.url) {
-					const clean = u.url.replace(/^@/, "");
-					const href = /^https?:\/\//i.test(clean)
-						? clean
-						: `${opt.baseUrl}${encodeURIComponent(clean)}`;
-					socialLinks.push({
-						service: opt.label.toLowerCase(),
-						label: opt.label,
-						url: href,
-					});
-				}
-			}
-		}
-
-		const communityTags: string[] = [];
-		if (p.community && Array.isArray(p.community)) {
-			for (const cId of p.community) {
-				const label = COMMUNITY_LABELS[cId];
-				if (label) communityTags.push(label);
-			}
-		}
-
-		const ethnicity =
-			p.ethnicity && ETHNICITY_LABELS[p.ethnicity]
-				? ETHNICITY_LABELS[p.ethnicity]
-				: undefined;
-		const bodyHair =
-			p.body_hair && BODY_HAIR_LABELS[p.body_hair]
-				? BODY_HAIR_LABELS[p.body_hair]
-				: undefined;
-		const rolePreference =
-			p.sex_preferences && SEX_PREFERENCE_LABELS[p.sex_preferences]
-				? SEX_PREFERENCE_LABELS[p.sex_preferences]
-				: undefined;
-		const relationshipStatus =
-			p.relationship_status &&
-			RELATIONSHIP_STATUS_LABELS[p.relationship_status]
-				? RELATIONSHIP_STATUS_LABELS[p.relationship_status]
-				: undefined;
-
-		return {
-			channel: this.channel,
-			id: String(p.id),
-			displayName: p.name || `User ${p.id}`,
-			age: p.age,
-			about: p.about || undefined,
-			photos,
-			distanceMeters:
-				p.distance !== undefined ? Math.round(p.distance * 1000) : null,
-			distanceText:
-				p.distance !== undefined
-					? `${p.distance.toFixed(1)} km`
-					: undefined,
-			isOnline: Boolean(p.logged_in),
-			heightCm: p.height,
-			weightKg: p.weight_kg,
-			ethnicity,
-			bodyHair,
-			rolePreference,
-			relationshipStatus,
-			communityTags,
-			socialLinks,
-			rawPayload: p,
-		};
+		return parseRawScruffProfile(p, this.channel);
 	}
 
 	async getConversations(
 		params?: ConversationQueryParams,
 	): Promise<PageResult<UniversalConversation>> {
+		let account = params?.account;
+		if (
+			account?.accountIdentifier &&
+			(!account.proxyUrl || !account.proxyUrl.includes("@"))
+		) {
+			try {
+				const platInfo = await queryPlatformAccount(
+					this.channel === "jackd" ? "jackd" : "scruff",
+					account.accountIdentifier,
+					2000,
+				);
+				if (platInfo?.proxyUrl) {
+					account = {
+						...account,
+						proxyUrl: resolveEffectiveProxy(
+							account.proxyUrl,
+							platInfo.proxyUrl,
+						),
+					};
+				}
+			} catch {
+				// 降级使用原配置
+			}
+		}
+
+		const userIdentifier =
+			(account?.extraMeta?.profileId as string | undefined) ||
+			account?.accountIdentifier ||
+			"";
+
 		const res = await this.client.request<{
+			ret?: boolean;
 			data?: Array<{
 				conversation_id?: string;
-				target?: string;
+				target?: string | number;
+				target_user_id?: string | number;
 				target_name?: string;
 				target_avatar_url?: string;
+				avatar_thumbnail_key?: string;
 				last_message?: string;
 				last_message_at?: number | string;
 				unread_count?: number;
 			}>;
 		}>({
-			path: "/_private/im/conversations",
+			account,
 			method: "GET",
-			query: {
-				platform: this.client.platform,
-				user: params?.account?.accountIdentifier,
-			},
-			account: params?.account,
+			path: "/_private/im/conversations",
+			query: { platform: this.client.platform, user: userIdentifier },
+			timeoutMs: 12000,
 		});
 
 		const list = res.data || [];
-		const items: UniversalConversation[] = list.map((c) => ({
-			channel: this.channel,
-			conversationId: c.conversation_id || String(c.target),
-			targetUserId: String(c.target),
-			targetUserName: c.target_name || `User ${c.target}`,
-			targetAvatarUrl: c.target_avatar_url,
-			lastMessageText: c.last_message || "",
-			lastMessageTimestamp: c.last_message_at
-				? new Date(c.last_message_at).getTime()
-				: 0,
-			unreadCount: c.unread_count ?? 0,
-			rawPayload: c,
-		}));
+		const items: UniversalConversation[] = list.map((c) => {
+			const targetId = String(c.target_user_id || c.target || "");
+			const avatarUrl =
+				c.target_avatar_url ||
+				(c.avatar_thumbnail_key
+					? buildScruffPhotoUrl(c.avatar_thumbnail_key)
+					: undefined);
+			return {
+				channel: this.channel,
+				conversationId: c.conversation_id || targetId,
+				lastMessageText: c.last_message || "",
+				lastMessageTimestamp: c.last_message_at
+					? typeof c.last_message_at === "number"
+						? c.last_message_at
+						: new Date(c.last_message_at).getTime()
+					: 0,
+				rawPayload: c,
+				targetAvatarUrl: avatarUrl,
+				targetUserId: targetId,
+				targetUserName: c.target_name || `User ${targetId}`,
+				unreadCount: c.unread_count ?? 0,
+			};
+		});
 
 		return {
+			hasNext: false,
 			items,
 			offset: params?.offset ?? 0,
-			hasNext: false,
 			total: items.length,
 		};
 	}
@@ -352,71 +253,157 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 		conversationId: string,
 		params?: MessageQueryParams,
 	): Promise<UniversalMessage[]> {
+		let account = params?.account;
+		if (
+			account?.accountIdentifier &&
+			(!account.proxyUrl || !account.proxyUrl.includes("@"))
+		) {
+			try {
+				const platInfo = await queryPlatformAccount(
+					this.channel === "jackd" ? "jackd" : "scruff",
+					account.accountIdentifier,
+					2000,
+				);
+				if (platInfo?.proxyUrl) {
+					account = {
+						...account,
+						proxyUrl: resolveEffectiveProxy(
+							account.proxyUrl,
+							platInfo.proxyUrl,
+						),
+					};
+				}
+			} catch {
+				// 降级使用原配置
+			}
+		}
+
 		const res = await this.client.request<{
 			results?: Array<{
-				guid: string;
-				sender_id: string | number;
-				recipient_id: string | number;
-				message: string;
-				created_at: string | number;
+				guid?: string;
+				id?: string | number;
+				sender?: string | number;
+				sender_id?: string | number;
+				recipient?: string | number;
+				recipient_id?: string | number;
+				message?: string;
+				message_type?: number;
+				created_at?: string | number;
+				timestamp?: number;
+				image_guid?: string;
+				photo_key?: string;
 			}>;
 		}>({
-			path: "/app/chat",
+			account,
 			method: "GET",
+			path: "/app/chat",
 			query: {
-				profile_id: conversationId,
 				inbox_style: 2,
 				keep_unread: 0,
+				profile_id: conversationId,
 			},
-			account: params?.account,
+			timeoutMs: 12000,
 		});
 
 		const list = res.results || [];
+		const metaId = account?.extraMeta?.profileId;
+		const myId =
+			typeof metaId === "string" || typeof metaId === "number"
+				? String(metaId)
+				: account?.accountIdentifier || "";
+
 		return list.map((m) => {
-			const time = m.created_at ? new Date(m.created_at).getTime() : 0;
+			const time = m.timestamp
+				? m.timestamp > 1e11
+					? m.timestamp
+					: m.timestamp * 1000
+				: m.created_at
+					? new Date(m.created_at).getTime()
+					: Date.now();
+			const senderId = String(m.sender ?? m.sender_id ?? "");
+			const recipientId = String(m.recipient ?? m.recipient_id ?? "");
+			const isFromMe = Boolean(myId && senderId === myId);
+			const mediaKey = m.photo_key || m.image_guid;
+			const mediaUrl = mediaKey
+				? buildScruffPhotoUrl(mediaKey)
+				: undefined;
+
 			return {
 				channel: this.channel,
-				id: m.guid,
 				conversationId,
-				senderId: String(m.sender_id),
-				recipientId: String(m.recipient_id),
-				isFromMe:
-					params?.account?.accountIdentifier === String(m.sender_id),
-				text: m.message,
-				timestamp: time,
+				id: String(m.guid || m.id || crypto.randomUUID()),
+				isFromMe,
+				mediaUrl,
 				rawPayload: m,
+				recipientId,
+				senderId,
+				status: "delivered",
+				text: m.message || "",
+				timestamp: time,
 			};
 		});
 	}
 
 	async sendMessage(params: SendMessageParams): Promise<UniversalMessage> {
+		let account = params.account;
+		if (
+			account?.accountIdentifier &&
+			(!account.proxyUrl || !account.proxyUrl.includes("@"))
+		) {
+			try {
+				const platInfo = await queryPlatformAccount(
+					this.channel === "jackd" ? "jackd" : "scruff",
+					account.accountIdentifier,
+					2000,
+				);
+				if (platInfo?.proxyUrl) {
+					account = {
+						...account,
+						proxyUrl: resolveEffectiveProxy(
+							account.proxyUrl,
+							platInfo.proxyUrl,
+						),
+					};
+				}
+			} catch {
+				// 降级使用原配置
+			}
+		}
+
 		const guid = crypto.randomUUID();
 		const requestGuid = crypto.randomUUID();
 
 		await this.client.request({
-			path: "/app/chat",
-			method: "POST",
+			account,
 			body: {
-				recipient: params.targetUserId,
+				guid,
+				media_behavior: 0,
 				message: params.text,
 				message_type: 1,
-				media_behavior: 0,
-				guid,
+				recipient: params.targetUserId,
 				request_guid: requestGuid,
 			},
-			account: params.account,
+			method: "POST",
+			path: "/app/chat",
+			timeoutMs: 15000,
 		});
+
+		const metaId = account?.extraMeta?.profileId;
+		const myId =
+			typeof metaId === "string" || typeof metaId === "number"
+				? String(metaId)
+				: account?.accountIdentifier || "me";
 
 		return {
 			channel: this.channel,
-			id: guid,
 			conversationId: params.conversationId || params.targetUserId,
-			senderId: params.account?.accountIdentifier || "me",
-			recipientId: params.targetUserId,
+			id: guid,
 			isFromMe: true,
+			recipientId: params.targetUserId,
+			senderId: myId,
+			status: "sent",
 			text: params.text,
 			timestamp: Date.now(),
-			status: "sent",
 		};
 	}
 

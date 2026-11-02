@@ -97,4 +97,24 @@ mod tests {
 		assert_eq!(req.body, Some("{\"lat\": 1.0}".to_string()));
 		assert_eq!(req.timeout_ms, Some(5000));
 	}
+
+	#[tokio::test]
+	async fn test_real_ping() {
+		let mut headers = HashMap::new();
+		headers.insert(
+			"omni-key".to_string(),
+			"omni__nNniWrIV4NTnu1lxBCE_DuwQpj6qqBIAPwWzoWwx8A".to_string(),
+		);
+		headers.insert("omni-platform".to_string(), "scruff".to_string());
+		let req = RelayHttpRequest {
+			method: "GET".to_string(),
+			url: "https://omni-relay.toonhub.top/_private/im/conversations?platform=scruff&user=ping_check".to_string(),
+			headers,
+			body: None,
+			timeout_ms: Some(10000),
+		};
+		let res = relay_http_request(req).await;
+		println!("real ping result: {:?}", res);
+		assert!(res.is_ok());
+	}
 }
