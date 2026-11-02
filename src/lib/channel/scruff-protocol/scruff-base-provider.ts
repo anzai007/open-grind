@@ -72,28 +72,54 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 	): Promise<PageResult<UniversalGridUser>> {
 		const offset = params.offset ?? 0;
 		const query: Record<string, unknown> = {
+			device_type: 1,
+			fullsize_constraint: "-fullsize-400K",
 			latitude: params.lat,
+			limit: 60,
 			longitude: params.lon,
 			offset,
-			limit: 1000,
-			device_type: 1,
 			query_sort_type: 3,
 			thumbnail_constraint: "-thumbnail-300",
-			fullsize_constraint: "-fullsize-400K",
 		};
 
 		if (params.filterTags && params.filterTags.length > 0) {
 			query.hashtags = JSON.stringify(params.filterTags);
 		}
 
+		let account = params.account;
+		if (
+			account?.accountIdentifier &&
+			(!account.proxyUrl || !account.proxyUrl.includes("@"))
+		) {
+			try {
+				const platInfo = await queryPlatformAccount(
+					this.channel === "jackd" ? "jackd" : "scruff",
+					account.accountIdentifier,
+					2000,
+				);
+				if (platInfo?.proxyUrl) {
+					account = {
+						...account,
+						proxyUrl: resolveEffectiveProxy(
+							account.proxyUrl,
+							platInfo.proxyUrl,
+						),
+					};
+				}
+			} catch {
+				// 降级使用原配置
+			}
+		}
+
 		const res = await this.client.request<{
 			results?: RawScruffProfile[];
 			data?: RawScruffProfile[];
 		}>({
-			path: "/app/location",
+			account,
 			method: "GET",
+			path: "/app/location",
 			query,
-			account: params.account,
+			timeoutMs: 12000,
 		});
 
 		const rawList = res.results || res.data || [];

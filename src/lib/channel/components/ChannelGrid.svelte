@@ -19,8 +19,16 @@
 	);
 	const currentMeta = $derived(channelState.currentMeta);
 
+	let lastLoadedGeohash: string | null = null;
+	let lastLoadedChannel: string | null = null;
+
 	$effect(() => {
 		if (!hasAccount) return;
+		const channel = channelState.activeChannel;
+		if (lastLoadedGeohash === geohash && lastLoadedChannel === channel)
+			return;
+		lastLoadedGeohash = geohash;
+		lastLoadedChannel = channel;
 		try {
 			const { lat, lon } = decodeGeohash(geohash);
 			void channelGridState.load(lat, lon);

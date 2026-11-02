@@ -27,6 +27,13 @@ export class ChannelGridState {
 	}
 
 	async load(lat: number, lon: number, filterTags?: string[]): Promise<void> {
+		if (
+			this.loading &&
+			this.currentLat === lat &&
+			this.currentLon === lon
+		) {
+			return;
+		}
 		this.currentLat = lat;
 		this.currentLon = lon;
 		this.currentFilterTags = filterTags;
@@ -57,8 +64,10 @@ export class ChannelGridState {
 
 	async loadMore(): Promise<void> {
 		if (
+			this.loading ||
 			this.isLoadingMore ||
 			!this.hasNext ||
+			this.items.length === 0 ||
 			this.currentLat === null ||
 			this.currentLon === null
 		) {
