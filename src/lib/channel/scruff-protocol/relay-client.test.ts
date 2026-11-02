@@ -107,4 +107,38 @@ describe("RelayClient", () => {
 		// Verify failed in logger
 		expect(networkLoggerState.httpLogs[0].error).toBe("Token expired");
 	});
+
+	it("ping and testConnection return ok: true on successful relay response", async () => {
+		globalThis.fetch = vi.fn().mockImplementation(() => {
+			return Promise.resolve({
+				ok: true,
+				status: 200,
+				text: () =>
+					Promise.resolve(JSON.stringify({ data: [], ret: true })),
+			} as Response);
+		});
+
+		const res = await RelayClient.testConnection();
+		expect(res.ok).toBe(true);
+		expect(res.status).toBe(200);
+		expect(res.message).toBe("中继连接正常");
+	});
+
+	it("ping and testConnection return ok: false on error response", async () => {
+		globalThis.fetch = vi.fn().mockImplementation(() => {
+			return Promise.resolve({
+				ok: false,
+				status: 401,
+				text: () =>
+					Promise.resolve(
+						JSON.stringify({ error: "无效的 omni-key" }),
+					),
+			} as Response);
+		});
+
+		const res = await RelayClient.testConnection();
+		expect(res.ok).toBe(false);
+		expect(res.status).toBe(401);
+		expect(res.message).toBe("无效的 omni-key");
+	});
 });

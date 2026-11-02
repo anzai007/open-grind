@@ -1,3 +1,5 @@
+import { invoke, isTauri } from "@tauri-apps/api/core";
+
 import { networkLoggerState } from "$lib/network-logger/network-logger-state.svelte";
 import type { ChannelAccount } from "../types";
 
@@ -15,6 +17,12 @@ export interface RelayRequestOptions {
 	account?: ChannelAccount;
 	headers?: Record<string, string>;
 	timeoutMs?: number;
+}
+
+interface RelayHttpResponse {
+	body: string;
+	headers: Record<string, string>;
+	status: number;
 }
 
 export class RelayApiError extends Error {
@@ -92,12 +100,7 @@ export class RelayClient {
 		}
 
 		const logEntry = networkLoggerState.startHttp({
-			method,
-			url: fullUrl,
-			queryParams:
-				Object.keys(logQueryParams).length > 0
-					? logQueryParams
-					: undefined,
+			body: options.body,
 			headers: {
 				...headers,
 				"omni-key": "******", // mask in logger for safety
@@ -105,24 +108,55 @@ export class RelayClient {
 					? { "omni-proxy": "[PROXY CONFIGURED]" }
 					: {}),
 			},
-			body: options.body,
+			method,
+			queryParams:
+				Object.keys(logQueryParams).length > 0
+					? logQueryParams
+					: undefined,
+			url: fullUrl,
 		});
 
 		const timeoutMs = options.timeoutMs ?? 30000;
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
 		try {
-			const res = await fetch(fullUrl, {
-				method,
-				headers,
-				body: reqBody,
-				signal: controller.signal,
-			});
+			let resStatus: number;
+			let text: string;
 
-			clearTimeout(timeoutId);
+			if (isTauri()) {
+				const res = await invoke<RelayHttpResponse>(
+					"relay_http_request",
+					{
+						req: {
+							body: reqBody,
+							headers,
+							method,
+							timeoutMs,
+							url: fullUrl,
+						},
+					},
+				);
+				resStatus = res.status;
+				text = res.body;
+			} else {
+				const controller = new AbortController();
+				const timeoutId = setTimeout(
+					() => controller.abort(),
+					timeoutMs,
+				);
+				try {
+					const res = await fetch(fullUrl, {
+						body: reqBody,
+						headers,
+						method,
+						signal: controller.signal,
+					});
+					resStatus = res.status;
+					text = await res.text();
+				} finally {
+					clearTimeout(timeoutId);
+				}
+			}
 
-			const text = await res.text();
 			let data: unknown;
 			try {
 				data = text ? JSON.parse(text) : {};
@@ -132,13 +166,14 @@ export class RelayClient {
 
 			const recordData = data as Record<string, unknown> | null;
 			const isSuccess =
-				res.ok &&
+				resStatus >= 200 &&
+				resStatus < 300 &&
 				(recordData?.ret === undefined || recordData.ret === true);
 
 			if (isSuccess) {
 				networkLoggerState.completeHttp(logEntry.id, {
-					status: res.status,
 					body: data,
+					status: resStatus,
 				});
 				return data as T;
 			}
@@ -147,30 +182,71 @@ export class RelayClient {
 				(typeof recordData?.message === "string" &&
 					recordData.message) ||
 				(typeof recordData?.error === "string" && recordData.error) ||
-				`Relay error (${res.status})`;
+				`Relay error (${resStatus})`;
 
 			networkLoggerState.failHttp(logEntry.id, {
-				status: res.status,
-				error: errMsg,
 				body: data,
+				error: errMsg,
+				status: resStatus,
 			});
 
-			throw new RelayApiError(errMsg, res.status, data);
+			throw new RelayApiError(errMsg, resStatus, data);
 		} catch (error) {
-			clearTimeout(timeoutId);
 			if (error instanceof RelayApiError) {
 				throw error;
 			}
 
 			const errMsg =
-				error instanceof Error ? error.message : String(error);
+				error instanceof Error
+					? error.message
+					: typeof error === "object" && error && "message" in error
+						? String(error.message)
+						: String(error);
+
 			networkLoggerState.failHttp(logEntry.id, {
-				status: 0,
 				error: errMsg,
+				status: 0,
 			});
 
 			throw new RelayApiError(errMsg, 0);
 		}
+	}
+
+	async ping(): Promise<{ message: string; ok: boolean; status: number }> {
+		try {
+			await this.request<{ ret: boolean }>({
+				method: "GET",
+				path: "/_private/im/conversations",
+				query: { platform: this.platform, user: "ping_check" },
+				timeoutMs: 10000,
+			});
+			return { message: "中继连接正常", ok: true, status: 200 };
+		} catch (error) {
+			if (error instanceof RelayApiError) {
+				return {
+					message: error.message,
+					ok: false,
+					status: error.status,
+				};
+			}
+			return {
+				message: error instanceof Error ? error.message : String(error),
+				ok: false,
+				status: 0,
+			};
+		}
+	}
+
+	static async testConnection(
+		baseUrl = DEFAULT_RELAY_BASE_URL,
+		key = DEFAULT_RELAY_KEY,
+	): Promise<{ message: string; ok: boolean; status: number }> {
+		const client = new RelayClient({
+			platform: "scruff",
+			relayBaseUrl: baseUrl,
+			relayKey: key,
+		});
+		return client.ping();
 	}
 
 	private buildUrl(path: string, query?: Record<string, unknown>): string {

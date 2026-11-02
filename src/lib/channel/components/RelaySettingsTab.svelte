@@ -13,6 +13,7 @@
 	import {
 		DEFAULT_RELAY_BASE_URL,
 		DEFAULT_RELAY_KEY,
+		RelayClient,
 	} from "../scruff-protocol/relay-client";
 
 	let showKey = $state(false);
@@ -26,22 +27,19 @@
 		testMessage = "";
 
 		try {
-			// Ping the relay base with Accept: application/json
-			const res = await fetch(DEFAULT_RELAY_BASE_URL, {
-				method: "GET",
-				headers: {
-					Accept: "application/json",
-					"omni-key": DEFAULT_RELAY_KEY,
-				},
-			});
+			const result = await RelayClient.testConnection(
+				DEFAULT_RELAY_BASE_URL,
+				DEFAULT_RELAY_KEY,
+			);
 
-			if (res.status >= 200 && res.status < 500) {
+			if (result.ok) {
 				testStatus = "success";
-				testMessage = `中继网关响应正常 (HTTP ${res.status})`;
+				testMessage = `中继网关通信正常 (HTTP ${result.status})`;
 				toast.success("中继网关通信正常");
 			} else {
 				testStatus = "error";
-				testMessage = `中继返回异常状态码: ${res.status}`;
+				testMessage =
+					result.message || `中继连接失败 (${result.status})`;
 				toast.error(testMessage);
 			}
 		} catch (e) {

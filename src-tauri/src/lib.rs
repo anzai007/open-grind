@@ -222,6 +222,7 @@ pub fn run() {
             storage::storage_backend,
             api::rest::request,
             api::rest::fetch_external,
+            api::relay::relay_http_request,
             media::media_failure,
             upload::bytes::upload_media,
             upload::inspect::inspect_media_file,
