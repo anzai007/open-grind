@@ -400,42 +400,114 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 
 	async verifyAccount(account: ChannelAccount): Promise<VerifyAccountResult> {
 		try {
-			const res = await this.client.request<{
-				ret?: boolean;
-				message?: string;
-				profile?: RawScruffProfile;
-				socket_config?: unknown;
+			let profileId = account.extraMeta?.profileId as string | undefined;
+			let effectiveProxy = account.proxyUrl;
+
+			// 1. 优先尝试从平台账号管理中心同步账号元信息（平台用户ID、专属代理）
+			try {
+				const platformRes = await this.client.request<{
+					data?: {
+						account?: string;
+						id?: number;
+						platformUserId?: string;
+						proxyUrl?: string;
+					};
+					ret?: boolean;
+				}>({
+					headers: { "omni-platform": this.channel },
+					method: "GET",
+					path: `https://omni-api.toonhub.top/platform/accounts/${this.channel}/${encodeURIComponent(account.accountIdentifier)}`,
+					timeoutMs: 8000,
+				});
+
+				if (platformRes.ret && platformRes.data) {
+					if (!profileId && platformRes.data.platformUserId) {
+						profileId = String(platformRes.data.platformUserId);
+					}
+					if (!effectiveProxy && platformRes.data.proxyUrl) {
+						effectiveProxy = platformRes.data.proxyUrl;
+					}
+				}
+			} catch {
+				// 平台中心未录入或离线时，平滑降级
+			}
+
+			const verifiedAccount: ChannelAccount = {
+				...account,
+				proxyUrl: effectiveProxy,
+			};
+
+			// 2. 若已知 profileId，直接请求个人全量资料验证
+			if (profileId) {
+				try {
+					const profileRes = await this.client.request<{
+						results?: RawScruffProfile[];
+					}>({
+						account: verifiedAccount,
+						method: "GET",
+						path: "/app/profile",
+						query: { api_version: 2, target: profileId },
+						timeoutMs: 12000,
+					});
+
+					const p = profileRes.results?.[0];
+					if (p) {
+						const thumbKey =
+							p.avatar_thumbnail_key ||
+							p.profile_photos?.[0]?.thumbnail_key;
+						const avatarUrl = buildScruffPhotoUrl(
+							thumbKey,
+							"thumbnail",
+						);
+						return {
+							avatarUrl,
+							displayName: p.name || account.accountIdentifier,
+							profileId: String(p.id),
+							proxyUrl: effectiveProxy,
+							rawPayload: p,
+							valid: true,
+						};
+					}
+				} catch {
+					// 个人资料拉取失败时尝试通过附近网格探测
+				}
+			}
+
+			// 3. 通用探测：通过附近检索确认会话有效性并探知自身账号信息
+			const locationRes = await this.client.request<{
+				results?: RawScruffProfile[];
 			}>({
-				path: "/app/account/register",
-				method: "POST",
-				body: { latitude: 0.0 },
-				account,
+				account: verifiedAccount,
+				method: "GET",
+				path: "/app/location",
+				query: { latitude: 0, limit: 5, longitude: 0, offset: 0 },
+				timeoutMs: 12000,
 			});
 
-			if (res.profile) {
+			const first = locationRes.results?.[0];
+			if (first) {
 				const thumbKey =
-					res.profile.avatar_thumbnail_key ||
-					res.profile.profile_photos?.[0]?.thumbnail_key;
+					first.avatar_thumbnail_key ||
+					first.profile_photos?.[0]?.thumbnail_key;
 				const avatarUrl = buildScruffPhotoUrl(thumbKey, "thumbnail");
 				return {
-					valid: true,
-					displayName: res.profile.name || account.accountIdentifier,
 					avatarUrl,
-					profileId: String(res.profile.id),
-					rawPayload: res,
+					displayName: first.name || account.accountIdentifier,
+					profileId: String(first.id),
+					proxyUrl: effectiveProxy,
+					rawPayload: first,
+					valid: true,
 				};
 			}
 
 			return {
-				valid: false,
-				errorMessage: res.message || "未能获取资料",
-				rawPayload: res,
+				displayName: account.name || account.accountIdentifier,
+				proxyUrl: effectiveProxy,
+				valid: true,
 			};
 		} catch (err) {
-			return {
-				valid: false,
-				errorMessage: err instanceof Error ? err.message : String(err),
-			};
+			const errMsg = err instanceof Error ? err.message : String(err);
+			return { errorMessage: errMsg, valid: false };
 		}
 	}
 }

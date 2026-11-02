@@ -175,16 +175,17 @@ export class ChannelState {
 		if (result.valid) {
 			const updated: ChannelAccount = {
 				...account,
-				name:
-					result.displayName ||
-					account.name ||
-					account.accountIdentifier,
 				avatarUrl: result.avatarUrl || account.avatarUrl,
 				extraMeta: {
 					...(account.extraMeta ?? {}),
 					profileId: result.profileId,
 					verifiedAt: Date.now(),
 				},
+				name:
+					result.displayName ||
+					account.name ||
+					account.accountIdentifier,
+				proxyUrl: result.proxyUrl || account.proxyUrl,
 			};
 			this.addAccount(updated);
 		}

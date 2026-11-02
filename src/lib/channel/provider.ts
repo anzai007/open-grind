@@ -39,12 +39,13 @@ export interface SendMessageParams {
 }
 
 export interface VerifyAccountResult {
-	valid: boolean;
-	profileId?: string;
-	displayName?: string;
 	avatarUrl?: string;
+	displayName?: string;
 	errorMessage?: string;
+	profileId?: string;
+	proxyUrl?: string;
 	rawPayload?: unknown;
+	valid: boolean;
 }
 
 export interface SocialChannelProvider {
