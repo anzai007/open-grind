@@ -177,21 +177,22 @@ export interface UniversalUserProfile {
 ## 四、分阶段落地推进清单 (Phase-by-Phase Roadmap)
 
 ### Phase 1: 架构解耦与渠道抽象层 (Architecture & Abstraction)
-- [ ] **1.1 定义统一 Provider 抽象接口**
-  - 创建 `src/lib/channel/provider.ts`，声明核心行为：
+- [x] **1.1 定义统一 Provider 抽象接口**
+  - 创建 `src/lib/channel/types.ts` 和 `src/lib/channel/provider.ts`，声明核心行为与通用模型：
     - `getNearbyUsers(coords, offset, options): Promise<PageResult<UniversalGridUser>>`
     - `getUserDetail(userId): Promise<UniversalUserProfile>`
     - `getConversations(page): Promise<UniversalConversation[]>`
     - `getMessages(conversationId): Promise<UniversalMessage[]>`
     - `sendMessage(targetId, text, options): Promise<SentResult>`
-    - `sendInteraction(targetId, action): Promise<void>` (Tap / Woof / Wave)
-- [ ] **1.2 现有 Grindr 逻辑重构为 `GrindrProvider`**
-  - 将 `src/lib/api/transport.ts` 及当前 Grindr API 接入封装进 `GrindrProvider` 实现。
-  - 确保 Grindr 原有功能 100% 保持现状且测试用例完全通过。
-- [ ] **1.3 创建全局渠道与账号管理状态机 (`channel-state.svelte.ts`)**
+    - `sendInteraction(targetId, action): Promise<UniversalInteractionResult>` (Tap / Woof / Wave)
+- [x] **1.2 现有 Grindr 逻辑重构为 `GrindrProvider`**
+  - 实现 `src/lib/channel/providers/grindr-provider.ts`，将现有的 Grindr API 接入封装为统一 Provider。
+  - 确保 Grindr 原有功能 100% 保持现状且单元测试完全通过。
+- [x] **1.3 创建全局渠道与账号管理状态机 (`channel-state.svelte.ts`)**
   - 管理当前激活的 `activeChannel: SocialChannelType` ('grindr' | 'scruff' | 'jackd')。
   - 管理每个渠道的已登录账号列表、当前活跃账号、独立代理设置 (`proxyUrl`)。
   - 暴露 `currentProvider = $derived(...)` 供 UI 无缝绑定。
+  - 编写完备单元测试 `channel-state.test.ts` 和 `provider.test.ts`（全部通过）。
 
 ### Phase 2: Scruff 与 Jack'd 传输网关与账号池 (Relay Transport & Accounts)
 - [ ] **2.1 中继客户端底层网关 (`src/lib/channel/scruff-protocol/relay-client.ts`)**
@@ -277,3 +278,9 @@ export interface UniversalUserProfile {
 - **2026-11-02**: 
   - 完成 `ai-growth-ops` 项目中 Scruff 与 Jack'd 14 项渠道能力、中继架构、数据字典与参数规则的完整深度调研。
   - 制定架构解耦与多渠道扩展方案，初始化本执行计划文档到 `docs/plans/2026-11-02-scruff-jackd-multi-channel-integration-plan.md`。
+  - **完成 Phase 1 架构解耦与渠道抽象层**：
+    - 落地 `src/lib/channel/types.ts` 通用领域模型与渠道元数据；
+    - 声明 `src/lib/channel/provider.ts` 标准化 `SocialChannelProvider` 接口；
+    - 封装 `src/lib/channel/providers/grindr-provider.ts` 零破坏性 Grindr 适配器；
+    - 建立 `src/lib/channel/channel-state.svelte.ts` 全局响应式状态机（支持 LocalStorage 持久化与账号隔离）；
+    - 编写并全部通过 7 项单元测试（`channel-state.test.ts`、`provider.test.ts`）。
