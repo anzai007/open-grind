@@ -243,9 +243,16 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 				(c.avatar_thumbnail_key as string) ||
 				(c.avatarThumbnailKey as string) ||
 				"";
+
+			const cachedProfile = targetId
+				? this.profileDetailCache.get(targetId)?.profile
+				: undefined;
+
 			const avatarUrl =
 				(c.target_avatar_url as string) ||
 				(c.targetAvatarUrl as string) ||
+				cachedProfile?.photos.find((p) => p.isAvatar)?.thumbnailUrl ||
+				cachedProfile?.photos[0]?.thumbnailUrl ||
 				(thumbKey ? buildScruffPhotoUrl(thumbKey) : undefined);
 
 			const lastMsgObj =
@@ -256,12 +263,35 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 						? (c.last_message as Record<string, unknown>)
 						: null;
 
-			const lastMessageText =
-				typeof c.last_message === "string"
-					? c.last_message
-					: typeof c.lastMessage === "string"
-						? c.lastMessage
-						: (lastMsgObj?.message as string) || "";
+			let lastMessageText = "";
+			if (typeof c.last_message === "string" && c.last_message) {
+				lastMessageText = c.last_message;
+			} else if (typeof c.lastMessage === "string" && c.lastMessage) {
+				lastMessageText = c.lastMessage;
+			} else if (lastMsgObj) {
+				const content =
+					(lastMsgObj.messageContent as string) ||
+					(lastMsgObj.message as string) ||
+					(lastMsgObj.text as string) ||
+					"";
+				if (content) {
+					lastMessageText = content;
+				} else if (lastMsgObj.attachment) {
+					const att = lastMsgObj.attachment as Record<
+						string,
+						unknown
+					>;
+					if (att.type === "image" || att.type === "scruff_image") {
+						lastMessageText = "[图片]";
+					} else if (att.type === "audio" || att.type === "voice") {
+						lastMessageText = "[语音]";
+					} else if (att.type === "video") {
+						lastMessageText = "[视频]";
+					} else {
+						lastMessageText = "[附件]";
+					}
+				}
+			}
 
 			const rawTime =
 				c.last_message_at ??
@@ -286,6 +316,15 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 					? String(rawConvId)
 					: targetId;
 
+			const targetUserName =
+				(c.target_name as string) ||
+				(c.targetName as string) ||
+				(cachedProfile?.displayName &&
+				!cachedProfile.displayName.startsWith("User ")
+					? cachedProfile.displayName
+					: undefined) ||
+				`User ${targetId}`;
+
 			return {
 				channel: this.channel,
 				conversationId,
@@ -294,13 +333,48 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 				rawPayload: c,
 				targetAvatarUrl: avatarUrl,
 				targetUserId: targetId,
-				targetUserName:
-					(c.target_name as string) ||
-					(c.targetName as string) ||
-					`User ${targetId}`,
+				targetUserName,
 				unreadCount: Number.isNaN(unread) ? 0 : unread,
 			};
 		});
+
+		// 自动并行水合未解析真实昵称/头像的目标用户资料 (最多取前 8 个活跃会话)
+		const missingTargets = items
+			.filter(
+				(it) =>
+					Boolean(it.targetUserId) &&
+					(!it.targetAvatarUrl ||
+						it.targetUserName.startsWith("User ")),
+			)
+			.slice(0, 8);
+
+		if (missingTargets.length > 0) {
+			await Promise.allSettled(
+				missingTargets.map(async (conv) => {
+					try {
+						const profile = await this.getUserDetail(
+							conv.targetUserId,
+							account,
+						);
+						if (
+							profile.displayName &&
+							!profile.displayName.startsWith("User ")
+						) {
+							conv.targetUserName = profile.displayName;
+						}
+						const avatar =
+							profile.photos.find((p) => p.isAvatar)
+								?.thumbnailUrl ||
+							profile.photos[0]?.thumbnailUrl;
+						if (avatar) {
+							conv.targetAvatarUrl = avatar;
+						}
+					} catch {
+						// 降级使用原始 User ID
+					}
+				}),
+			);
+		}
 
 		return {
 			hasNext: false,
@@ -415,6 +489,29 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 			}
 		}
 
+		const metaId = account?.extraMeta?.profileId;
+		const myId =
+			typeof metaId === "string" || typeof metaId === "number"
+				? String(metaId)
+				: account?.accountIdentifier || "";
+
+		let targetProfileId = conversationId;
+		if (targetProfileId.includes(":")) {
+			const parts = targetProfileId.split(":");
+			targetProfileId =
+				parts.find((p) => p && p !== myId) ||
+				parts[1] ||
+				parts[0] ||
+				targetProfileId;
+		} else if (targetProfileId.includes("-")) {
+			const parts = targetProfileId.split("-");
+			targetProfileId =
+				parts.find((p) => p && p !== myId) ||
+				parts[1] ||
+				parts[0] ||
+				targetProfileId;
+		}
+
 		const res = await this.client.request<{
 			results?: Array<{
 				guid?: string;
@@ -437,17 +534,12 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 			query: {
 				inbox_style: 2,
 				keep_unread: 0,
-				profile_id: conversationId,
+				profile_id: targetProfileId,
 			},
 			timeoutMs: 12000,
 		});
 
 		const list = res.results || [];
-		const metaId = account?.extraMeta?.profileId;
-		const myId =
-			typeof metaId === "string" || typeof metaId === "number"
-				? String(metaId)
-				: account?.accountIdentifier || "";
 
 		return list.map((m) => {
 			const time = m.timestamp

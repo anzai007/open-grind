@@ -42,11 +42,21 @@ export class ChannelGridState {
 		this.currentCacheKey = null;
 	}
 
-	private clearItemsOnly() {
+	clearItemsOnly() {
 		this.items = [];
 		this.offset = 0;
 		this.hasNext = true;
 		this.error = null;
+	}
+
+	findCachedUser(userId: string): UniversalGridUser | undefined {
+		const inCurrent = this.items.find((u) => u.id === userId);
+		if (inCurrent) return inCurrent;
+		for (const list of this.gridMemoryCache.values()) {
+			const found = list.find((u) => u.id === userId);
+			if (found) return found;
+		}
+		return undefined;
 	}
 
 	async load(

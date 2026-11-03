@@ -183,4 +183,47 @@ describe("ChannelChatState", () => {
 			"scruff-user-1",
 		);
 	});
+
+	it("preserves hydrated user profile during subsequent loadConversations", async () => {
+		const currentProvider = channelState.currentProvider;
+		vi.spyOn(currentProvider, "getConversations").mockResolvedValue({
+			hasNext: false,
+			items: [
+				{
+					channel: "scruff",
+					conversationId: "u202219908",
+					lastMessageText: "Hello there",
+					lastMessageTimestamp: 1000,
+					targetUserId: "202219908",
+					targetUserName: "User 202219908",
+					unreadCount: 1,
+				},
+			],
+			offset: 0,
+			total: 1,
+		});
+
+		await channelChatState.loadConversations();
+		expect(channelChatState.conversations).toHaveLength(1);
+
+		// 模拟水合更新了真实昵称与头像
+		channelChatState.updateConversationUserProfile("202219908", {
+			displayName: "Kenji",
+			avatarUrl: "https://example.com/kenji.jpg",
+		});
+
+		expect(channelChatState.conversations[0]!.targetUserName).toBe("Kenji");
+		expect(channelChatState.conversations[0]!.targetAvatarUrl).toBe(
+			"https://example.com/kenji.jpg",
+		);
+
+		// 再次触发 loadConversations (模拟 5 秒轮询返回未解析的 User 202219908)
+		await channelChatState.loadConversations(true);
+
+		// 验证：已水合的真实昵称与头像被完好保留，未被回退成 "User 202219908"
+		expect(channelChatState.conversations[0]!.targetUserName).toBe("Kenji");
+		expect(channelChatState.conversations[0]!.targetAvatarUrl).toBe(
+			"https://example.com/kenji.jpg",
+		);
+	});
 });

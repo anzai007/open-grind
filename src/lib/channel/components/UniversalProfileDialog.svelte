@@ -34,6 +34,18 @@
 		}
 	});
 
+	$effect(() => {
+		if (user) {
+			const avatar =
+				user.photos.find((p) => p.isAvatar)?.thumbnailUrl ||
+				user.photos[0]?.thumbnailUrl;
+			channelChatState.updateConversationUserProfile(user.id, {
+				displayName: user.displayName,
+				avatarUrl: avatar,
+			});
+		}
+	});
+
 	async function handleSendInteraction() {
 		if (!user || isInteracting || interactionSent) return;
 		isInteracting = true;

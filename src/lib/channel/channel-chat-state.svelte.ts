@@ -1,5 +1,6 @@
-import { SvelteMap } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
+import { channelGridState } from "./channel-grid-state.svelte";
 import { channelState } from "./channel-state.svelte";
 import type { UniversalConversation, UniversalMessage } from "./types";
 
@@ -27,6 +28,7 @@ export class ChannelChatState {
 	private pollingTimer: ReturnType<typeof setInterval> | null = null;
 	private isFetchingConversations = false;
 	private isFetchingMessages = false;
+	private hydratingUserIds = new SvelteSet<string>();
 
 	constructor() {
 		this.loadFromStorage();
@@ -162,11 +164,32 @@ export class ChannelChatState {
 				if (c.targetUserId) localMap.set(c.targetUserId, c);
 			}
 
-			// 如果本地有较新的最后消息（例如刚发送完毕），保留本地的更新
+			// 智能合并远程拉取与本地缓存（保留较新的最后消息、优先使用已解析的真实头像与真实昵称）
 			const mergedServerItems = serverItems.map((s) => {
 				const local =
 					localMap.get(s.conversationId) ||
 					(s.targetUserId ? localMap.get(s.targetUserId) : undefined);
+
+				const cachedGrid = s.targetUserId
+					? channelGridState.findCachedUser(s.targetUserId)
+					: undefined;
+
+				const targetUserName =
+					s.targetUserName && !s.targetUserName.startsWith("User ")
+						? s.targetUserName
+						: local?.targetUserName &&
+							  !local.targetUserName.startsWith("User ")
+							? local.targetUserName
+							: cachedGrid?.displayName &&
+								  !cachedGrid.displayName.startsWith("User ")
+								? cachedGrid.displayName
+								: s.targetUserName;
+
+				const targetAvatarUrl =
+					s.targetAvatarUrl ||
+					local?.targetAvatarUrl ||
+					cachedGrid?.avatarThumbnailUrl;
+
 				if (
 					local &&
 					(local.lastMessageTimestamp ?? 0) >
@@ -174,12 +197,14 @@ export class ChannelChatState {
 				) {
 					return {
 						...s,
+						targetUserName,
+						targetAvatarUrl,
 						lastMessageText:
 							local.lastMessageText || s.lastMessageText,
 						lastMessageTimestamp: local.lastMessageTimestamp,
 					};
 				}
-				return s;
+				return { ...s, targetUserName, targetAvatarUrl };
 			});
 
 			// 保留本地创建但尚未入库服务端的草稿/新打开会话（避免点击“发私信”后 1 秒被服务器空列表冲掉）
@@ -197,6 +222,17 @@ export class ChannelChatState {
 			this.conversations = combined;
 			this.conversationsStore.set(scope, combined);
 			this.saveToStorage();
+
+			// 后台异步补全仍缺失头像或昵称的新用户信息
+			for (const item of combined) {
+				if (
+					item.targetUserId &&
+					(!item.targetAvatarUrl ||
+						item.targetUserName.startsWith("User "))
+				) {
+					void this.hydrateConversationUser(item.targetUserId);
+				}
+			}
 		} catch (e) {
 			if (!silent) {
 				this.error = e instanceof Error ? e.message : String(e);
@@ -219,6 +255,19 @@ export class ChannelChatState {
 			this.messages = cachedMsgs;
 		} else {
 			this.messages = [];
+		}
+
+		// 若当前会话尚未解析出真实昵称或头像，触发异步水合
+		const conv = this.conversations.find(
+			(c) => c.conversationId === conversationId,
+		);
+		if (
+			conv?.targetUserId &&
+			(!conv.targetUserName ||
+				conv.targetUserName.startsWith("User ") ||
+				!conv.targetAvatarUrl)
+		) {
+			void this.hydrateConversationUser(conv.targetUserId);
 		}
 
 		await this.loadMessages(conversationId);
@@ -350,6 +399,62 @@ export class ChannelChatState {
 		}
 	}
 
+	async hydrateConversationUser(userId: string): Promise<void> {
+		if (channelState.activeChannel === "grindr" || !userId) return;
+		if (this.hydratingUserIds.has(userId)) return;
+		this.hydratingUserIds.add(userId);
+
+		try {
+			const provider = channelState.currentProvider;
+			const account = channelState.currentAccount;
+			const profile = await provider.getUserDetail(userId, account);
+			const avatar =
+				profile.photos.find((p) => p.isAvatar)?.thumbnailUrl ||
+				profile.photos[0]?.thumbnailUrl;
+			this.updateConversationUserProfile(userId, {
+				displayName: profile.displayName,
+				avatarUrl: avatar,
+			});
+		} catch {
+			// ignore
+		} finally {
+			this.hydratingUserIds.delete(userId);
+		}
+	}
+
+	updateConversationUserProfile(
+		userId: string,
+		profile: { displayName?: string; avatarUrl?: string },
+	): void {
+		let updated = false;
+		const nextConversations = this.conversations.map((c) => {
+			if (c.targetUserId === userId || c.conversationId === userId) {
+				const hasValidName =
+					profile.displayName &&
+					!profile.displayName.startsWith("User ");
+				const targetUserName = hasValidName
+					? profile.displayName!
+					: c.targetUserName;
+				const targetAvatarUrl = profile.avatarUrl || c.targetAvatarUrl;
+
+				if (
+					targetUserName !== c.targetUserName ||
+					targetAvatarUrl !== c.targetAvatarUrl
+				) {
+					updated = true;
+					return { ...c, targetUserName, targetAvatarUrl };
+				}
+			}
+			return c;
+		});
+
+		if (updated) {
+			this.conversations = nextConversations;
+			this.conversationsStore.set(this.getScopeKey(), nextConversations);
+			this.saveToStorage();
+		}
+	}
+
 	openChatWithUser(user: {
 		id: string;
 		displayName?: string;
@@ -379,6 +484,24 @@ export class ChannelChatState {
 			this.conversations = [conv, ...this.conversations];
 			this.conversationsStore.set(scope, this.conversations);
 			this.saveToStorage();
+		} else {
+			let updated = false;
+			if (
+				user.displayName &&
+				(!conv.targetUserName ||
+					conv.targetUserName.startsWith("User "))
+			) {
+				conv.targetUserName = user.displayName;
+				updated = true;
+			}
+			if (user.avatarThumbnailUrl && !conv.targetAvatarUrl) {
+				conv.targetAvatarUrl = user.avatarThumbnailUrl;
+				updated = true;
+			}
+			if (updated) {
+				this.conversationsStore.set(scope, this.conversations);
+				this.saveToStorage();
+			}
 		}
 
 		this.activeConversationId = conv.conversationId;
