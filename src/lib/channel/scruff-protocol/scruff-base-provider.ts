@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import type {
 	ConversationQueryParams,
 	MessageQueryParams,
@@ -20,11 +21,61 @@ import {
 import { parseRawScruffProfile, type RawScruffProfile } from "./profile-parser";
 import { queryPlatformAccount, resolveEffectiveProxy } from "./proxy-helper";
 import { RelayClient } from "./relay-client";
+import { relayImWs } from "./relay-im-ws.svelte";
 import {
 	syncScruffAccountProfile,
 	verifyScruffAccount,
 } from "./scruff-account-verifier";
 import { buildScruffPhotoUrl } from "./scruff-options";
+
+/**
+ * 从会话报文中解析对方用户 ID。
+ * 当对方发来入站消息时，c.target 为当前账号 ID，c.sender 才是对方 ID。
+ * 必须比对并排除当前账号 ID，防止本地会话错把对方标记成自己的账号。
+ */
+export function resolvePartnerProfileId(
+	c: Record<string, unknown>,
+	myProfileId?: string,
+): string {
+	const rawTarget = c.target_user_id ?? c.targetUserId ?? c.target ?? "";
+	const rawSender = c.sender ?? c.sender_id ?? c.senderId ?? "";
+	const target =
+		typeof rawTarget === "string" || typeof rawTarget === "number"
+			? String(rawTarget).trim()
+			: "";
+	const sender =
+		typeof rawSender === "string" || typeof rawSender === "number"
+			? String(rawSender).trim()
+			: "";
+	const myId = String(myProfileId ?? "").trim();
+
+	// 1. 如果当前已知我的 profileId，排除我自己，取对方
+	if (myId) {
+		if (target && target !== myId) return target;
+		if (sender && sender !== myId) return sender;
+	}
+
+	// 2. 从 conversationId 中推导（通常为 "uid1:uid2" 或 "uid1-uid2"）
+	const rawConvVal = c.conversation_id ?? c.conversationId;
+	const rawConvId =
+		typeof rawConvVal === "string" || typeof rawConvVal === "number"
+			? String(rawConvVal).trim()
+			: "";
+	if (rawConvId.includes(":") || rawConvId.includes("-")) {
+		const parts = rawConvId
+			.split(/[:-]/)
+			.map((p) => p.trim())
+			.filter(Boolean);
+		if (myId) {
+			const partner = parts.find((p) => p !== myId);
+			if (partner) return partner;
+		}
+		if (parts.length >= 2 && parts[1]) return parts[1];
+	}
+
+	// 3. 兜底取 target 或 sender
+	return target || sender || rawConvId;
+}
 
 export abstract class ScruffProtocolBaseProvider implements SocialChannelProvider {
 	abstract readonly channel: SocialChannelType;
@@ -219,12 +270,7 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 
 		const list = res.data || [];
 		const items: UniversalConversation[] = list.map((c) => {
-			const rawTarget =
-				c.target_user_id ?? c.targetUserId ?? c.target ?? "";
-			const targetId =
-				typeof rawTarget === "string" || typeof rawTarget === "number"
-					? String(rawTarget)
-					: "";
+			const targetId = resolvePartnerProfileId(c, userIdentifier);
 			const thumbKey =
 				(c.avatar_thumbnail_key as string) ||
 				(c.avatarThumbnailKey as string) ||
@@ -241,24 +287,58 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 				cachedProfile?.photos[0]?.thumbnailUrl ||
 				(thumbKey ? buildScruffPhotoUrl(thumbKey) : undefined);
 
-			const lastMsgObj =
-				typeof c.lastMessage === "object" && c.lastMessage !== null
-					? (c.lastMessage as Record<string, unknown>)
-					: typeof c.last_message === "object" &&
-						  c.last_message !== null
-						? (c.last_message as Record<string, unknown>)
-						: null;
+			let lastMsgObj: Record<string, unknown> | null = null;
+			if (typeof c.lastMessage === "object" && c.lastMessage !== null) {
+				lastMsgObj = c.lastMessage as Record<string, unknown>;
+			} else if (
+				typeof c.last_message === "object" &&
+				c.last_message !== null
+			) {
+				lastMsgObj = c.last_message as Record<string, unknown>;
+			} else if (
+				typeof c.last_message_snapshot === "string" &&
+				c.last_message_snapshot
+			) {
+				try {
+					lastMsgObj = JSON.parse(c.last_message_snapshot) as Record<
+						string,
+						unknown
+					>;
+				} catch {
+					// ignore
+				}
+			} else if (
+				typeof c.last_message_snapshot === "object" &&
+				c.last_message_snapshot !== null
+			) {
+				lastMsgObj = c.last_message_snapshot as Record<string, unknown>;
+			}
 
 			let lastMessageText = "";
 			if (typeof c.last_message === "string" && c.last_message) {
 				lastMessageText = c.last_message;
 			} else if (typeof c.lastMessage === "string" && c.lastMessage) {
 				lastMessageText = c.lastMessage;
+			} else if (
+				typeof c.last_message_content === "string" &&
+				c.last_message_content
+			) {
+				lastMessageText = c.last_message_content;
+			} else if (
+				typeof c.messageContent === "string" &&
+				c.messageContent
+			) {
+				lastMessageText = c.messageContent;
+			} else if (typeof c.content === "string" && c.content) {
+				lastMessageText = c.content;
 			} else if (lastMsgObj) {
 				const content =
 					(lastMsgObj.messageContent as string) ||
+					(lastMsgObj.message_content as string) ||
+					(lastMsgObj.content as string) ||
 					(lastMsgObj.message as string) ||
 					(lastMsgObj.text as string) ||
+					(lastMsgObj.body as string) ||
 					"";
 				if (content) {
 					lastMessageText = content;
@@ -538,8 +618,57 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 
 	async sendMessage(params: SendMessageParams): Promise<UniversalMessage> {
 		const account = await this.ensureAccountProxy(params.account);
+		const metaId = account?.extraMeta?.profileId;
+		const myId =
+			typeof metaId === "string" || typeof metaId === "number"
+				? String(metaId)
+				: account?.accountIdentifier || "me";
 
-		const guid = crypto.randomUUID();
+		let targetUserId = params.targetUserId;
+		if (targetUserId.includes(":") || targetUserId.includes("-")) {
+			const parts = targetUserId.split(/[:-]/);
+			targetUserId =
+				parts.find((p) => p && p !== myId) || parts[0] || targetUserId;
+		}
+
+		let guid: string = crypto.randomUUID();
+		let messageTimestamp = Date.now();
+
+		// 1. 优先尝试走 WSS 统一长链模式 (WebSocket messageSend)
+		if (relayImWs.connected && this.channel !== "grindr" && myId !== "me") {
+			try {
+				const wsResult = await relayImWs.sendTextMessage({
+					sender: myId,
+					target: targetUserId,
+					text: params.text,
+					channel: this.channel,
+				});
+				if (wsResult.messageId) {
+					guid = wsResult.messageId;
+				}
+				if (wsResult.senderTime) {
+					messageTimestamp = new Date(wsResult.senderTime).getTime();
+				}
+				return {
+					channel: this.channel,
+					conversationId: params.conversationId || targetUserId,
+					id: guid,
+					isFromMe: true,
+					recipientId: targetUserId,
+					senderId: myId,
+					status: "sent",
+					text: params.text,
+					timestamp: messageTimestamp,
+				};
+			} catch (wsErr) {
+				console.warn(
+					"WSS messageSend failed, falling back to HTTP /app/chat:",
+					wsErr,
+				);
+			}
+		}
+
+		// 2. WSS 未连接或异常时，平滑降级走 HTTP /app/chat
 		const requestGuid = crypto.randomUUID();
 
 		try {
@@ -550,7 +679,7 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 					media_behavior: 0,
 					message: params.text,
 					message_type: 1,
-					recipient: params.targetUserId,
+					recipient: targetUserId,
 					request_guid: requestGuid,
 				},
 				method: "POST",
@@ -564,22 +693,16 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 			);
 		}
 
-		const metaId = account?.extraMeta?.profileId;
-		const myId =
-			typeof metaId === "string" || typeof metaId === "number"
-				? String(metaId)
-				: account?.accountIdentifier || "me";
-
 		return {
 			channel: this.channel,
-			conversationId: params.conversationId || params.targetUserId,
+			conversationId: params.conversationId || targetUserId,
 			id: guid,
 			isFromMe: true,
-			recipientId: params.targetUserId,
+			recipientId: targetUserId,
 			senderId: myId,
 			status: "sent",
 			text: params.text,
-			timestamp: Date.now(),
+			timestamp: messageTimestamp,
 		};
 	}
 

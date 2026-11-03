@@ -1,7 +1,13 @@
+/* eslint-disable max-lines */
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 import { channelGridState } from "./channel-grid-state.svelte";
 import { channelState } from "./channel-state.svelte";
+import {
+	relayImWs,
+	type RelayInboundMessageData,
+	type RelayWsPacket,
+} from "./scruff-protocol/relay-im-ws.svelte";
 import type { UniversalConversation, UniversalMessage } from "./types";
 
 const STORAGE_KEY = "opengrind_channel_chat_v1";
@@ -32,6 +38,10 @@ export class ChannelChatState {
 
 	constructor() {
 		this.loadFromStorage();
+		// 监听 Scruff / Jack'd 统一 IM WSS 实时推送（来信与发信即时推流至界面）
+		relayImWs.onMessage((packet) => {
+			this.handleWsPacket(packet);
+		});
 	}
 
 	get activeConversation(): UniversalConversation | null {
@@ -49,8 +59,29 @@ export class ChannelChatState {
 		return `${channel}:${accountId}`;
 	}
 
+	normalizePartnerId(conversationId: string): string {
+		const metaId = channelState.currentAccount?.extraMeta?.profileId;
+		const myId =
+			typeof metaId === "string" || typeof metaId === "number"
+				? String(metaId).trim()
+				: channelState.currentAccount?.accountIdentifier || "";
+		if (conversationId.includes(":") || conversationId.includes("-")) {
+			const parts = conversationId
+				.split(/[:-]/)
+				.map((p) => p.trim())
+				.filter(Boolean);
+			if (myId) {
+				const partner = parts.find((p) => p !== myId);
+				if (partner) return partner;
+			}
+			if (parts.length >= 2 && parts[1]) return parts[1];
+		}
+		return conversationId;
+	}
+
 	private getMessageScopeKey(conversationId: string): string {
-		return `${this.getScopeKey()}:${conversationId}`;
+		const partnerId = this.normalizePartnerId(conversationId);
+		return `${this.getScopeKey()}:${partnerId}`;
 	}
 
 	private loadFromStorage() {
@@ -111,6 +142,8 @@ export class ChannelChatState {
 		this.stopPolling();
 		this.pollingTimer = setInterval(() => {
 			if (channelState.activeChannel === "grindr") return;
+			// 若 Scruff / Jack'd IM WSS 统一长链已连接，消息由 WebSocket 实时推送，无需冗余的高频 HTTP 轮询
+			if (relayImWs.connected) return;
 			void this.loadConversations(true);
 			if (this.activeConversationId) {
 				void this.loadMessages(this.activeConversationId, true);
@@ -126,6 +159,14 @@ export class ChannelChatState {
 	}
 
 	switchScope(): void {
+		const channel = channelState.activeChannel;
+		const account = channelState.currentAccount;
+		if (channel === "scruff" || channel === "jackd") {
+			relayImWs.connect(channel, account);
+		} else {
+			relayImWs.disconnect();
+		}
+
 		const scope = this.getScopeKey();
 		this.conversations = [
 			...(this.conversationsStore.get(scope) ?? []),
@@ -135,6 +176,160 @@ export class ChannelChatState {
 		);
 		this.activeConversationId = null;
 		this.messages = [];
+	}
+
+	/**
+	 * 处理来自统一 IM WSS 长链推流报文 (messageRecvNotify / messageSendedNotify)
+	 */
+	private handleWsPacket(packet: RelayWsPacket): void {
+		if (
+			packet.type !== "messageRecvNotify" &&
+			packet.type !== "messageSendedNotify"
+		) {
+			return;
+		}
+
+		const data = packet.data as RelayInboundMessageData | undefined;
+		if (!data || !data.messageId) return;
+
+		const channel = channelState.activeChannel;
+		if (channel !== "scruff" && channel !== "jackd") return;
+
+		const metaId = channelState.currentAccount?.extraMeta?.profileId;
+		const myProfileId =
+			typeof metaId === "string" || typeof metaId === "number"
+				? String(metaId).trim()
+				: channelState.currentAccount?.accountIdentifier || "";
+
+		const senderId = String(data.sender ?? "").trim();
+		const targetId = String(data.target ?? "").trim();
+		const isFromMe =
+			packet.type === "messageSendedNotify" ||
+			(Boolean(myProfileId) && senderId === myProfileId);
+
+		const partnerId = isFromMe ? targetId : senderId;
+		if (!partnerId) return;
+
+		const rawRecord = data as unknown as Record<string, unknown>;
+		const content =
+			data.messageContent ||
+			(typeof rawRecord.message === "string" ? rawRecord.message : "") ||
+			(typeof rawRecord.text === "string" ? rawRecord.text : "") ||
+			(typeof rawRecord.content === "string" ? rawRecord.content : "") ||
+			(data.attachment ? "[媒体附件]" : "");
+		const timestamp = data.senderTime
+			? Date.parse(data.senderTime)
+			: Date.now();
+		const messageId = String(data.messageId);
+
+		// 1. 存入消息流
+		const msgScope = this.getMessageScopeKey(partnerId);
+		const currentMsgs = this.messagesStore.get(msgScope) ?? [];
+
+		const exists = currentMsgs.some(
+			(m) =>
+				m.id === messageId ||
+				(m.isFromMe === isFromMe &&
+					m.text === content &&
+					Math.abs(m.timestamp - timestamp) < 5000),
+		);
+
+		if (!exists) {
+			const universalMsg: UniversalMessage = {
+				channel,
+				conversationId: data.conversationId || partnerId,
+				id: messageId,
+				isFromMe,
+				recipientId: data.target,
+				senderId: data.sender,
+				status: "delivered",
+				text: content,
+				timestamp,
+			};
+
+			const nextMsgs = [...currentMsgs, universalMsg].sort(
+				(a, b) => a.timestamp - b.timestamp,
+			);
+			this.messagesStore.set(msgScope, nextMsgs);
+
+			// 如果当前正在查看该会话，立即推入活跃消息流
+			const activePartner = this.activeConversationId
+				? this.normalizePartnerId(this.activeConversationId)
+				: null;
+			if (activePartner === partnerId) {
+				this.messages = nextMsgs;
+			}
+		}
+
+		// 2. 更新或新建会话列表项
+		const scope = this.getScopeKey();
+		let conv = this.conversations.find(
+			(c) =>
+				c.targetUserId === partnerId ||
+				c.conversationId === partnerId ||
+				(Boolean(data.conversationId) &&
+					c.conversationId === data.conversationId) ||
+				c.conversationId.includes(partnerId),
+		);
+
+		const isCurrentlyActive =
+			this.activeConversationId &&
+			this.normalizePartnerId(this.activeConversationId) === partnerId;
+		const unreadDelta = !isFromMe && !isCurrentlyActive ? 1 : 0;
+
+		if (conv) {
+			if (content) conv.lastMessageText = content;
+			conv.lastMessageTimestamp = Math.max(
+				conv.lastMessageTimestamp ?? 0,
+				timestamp,
+			);
+			if (unreadDelta > 0) {
+				conv.unreadCount = (conv.unreadCount || 0) + unreadDelta;
+			}
+			if (data.conversationId) {
+				conv.conversationId = data.conversationId;
+			}
+		} else {
+			const cachedGrid = channelGridState.findCachedUser(partnerId);
+			const matchingAccount = channelState.accounts[channel]?.find(
+				(a) =>
+					a.extraMeta?.profileId === partnerId ||
+					a.accountIdentifier === partnerId,
+			);
+			conv = {
+				channel,
+				conversationId: data.conversationId || partnerId,
+				lastMessageText: content,
+				lastMessageTimestamp: timestamp,
+				rawPayload: data,
+				targetAvatarUrl:
+					cachedGrid?.avatarThumbnailUrl ||
+					matchingAccount?.avatarUrl,
+				targetUserId: partnerId,
+				targetUserName:
+					cachedGrid?.displayName ||
+					matchingAccount?.name ||
+					`User ${partnerId}`,
+				unreadCount: unreadDelta,
+			};
+			this.conversations.push(conv);
+		}
+
+		// 按最后一条消息时间倒序重排
+		this.conversations.sort(
+			(a, b) =>
+				(b.lastMessageTimestamp ?? 0) - (a.lastMessageTimestamp ?? 0),
+		);
+		this.conversationsStore.set(scope, this.conversations);
+		this.saveToStorage();
+
+		// 3. 异步水合用户信息
+		if (
+			conv.targetUserId &&
+			(!conv.targetAvatarUrl || conv.targetUserName.startsWith("User "))
+		) {
+			void this.hydrateConversationUser(conv.targetUserId);
+		}
 	}
 
 	async loadConversations(silent = false): Promise<void> {
@@ -171,16 +366,30 @@ export class ChannelChatState {
 			for (const c of this.conversations) {
 				localMap.set(c.conversationId, c);
 				if (c.targetUserId) localMap.set(c.targetUserId, c);
+				const pId = this.normalizePartnerId(c.conversationId);
+				if (pId) localMap.set(pId, c);
 			}
 
 			// 智能合并远程拉取与本地缓存（保留较新的最后消息、优先使用已解析的真实头像与真实昵称）
 			const mergedServerItems = serverItems.map((s) => {
+				const partnerId = this.normalizePartnerId(s.conversationId);
 				const local =
 					localMap.get(s.conversationId) ||
-					(s.targetUserId ? localMap.get(s.targetUserId) : undefined);
+					(s.targetUserId
+						? localMap.get(s.targetUserId)
+						: undefined) ||
+					(partnerId ? localMap.get(partnerId) : undefined);
 
 				const cachedGrid = s.targetUserId
 					? channelGridState.findCachedUser(s.targetUserId)
+					: undefined;
+
+				const matchingAccount = s.targetUserId
+					? channelState.accounts[channel]?.find(
+							(a) =>
+								a.extraMeta?.profileId === s.targetUserId ||
+								a.accountIdentifier === s.targetUserId,
+						)
 					: undefined;
 
 				const targetUserName =
@@ -192,12 +401,16 @@ export class ChannelChatState {
 							: cachedGrid?.displayName &&
 								  !cachedGrid.displayName.startsWith("User ")
 								? cachedGrid.displayName
-								: s.targetUserName;
+								: matchingAccount?.name &&
+									  !matchingAccount.name.startsWith("User ")
+									? matchingAccount.name
+									: s.targetUserName;
 
 				const targetAvatarUrl =
 					s.targetAvatarUrl ||
 					local?.targetAvatarUrl ||
-					cachedGrid?.avatarThumbnailUrl;
+					cachedGrid?.avatarThumbnailUrl ||
+					matchingAccount?.avatarUrl;
 
 				const isCurrentlyActive =
 					this.activeConversationId === s.conversationId ||
@@ -281,11 +494,14 @@ export class ChannelChatState {
 	}
 
 	markConversationAsRead(conversationId: string): void {
+		const partnerId = this.normalizePartnerId(conversationId);
 		let updated = false;
 		const next = this.conversations.map((c) => {
 			if (
 				(c.conversationId === conversationId ||
-					c.targetUserId === conversationId) &&
+					c.targetUserId === conversationId ||
+					c.targetUserId === partnerId ||
+					c.conversationId.includes(partnerId)) &&
 				c.unreadCount > 0
 			) {
 				updated = true;
@@ -307,26 +523,26 @@ export class ChannelChatState {
 		this.markConversationAsRead(conversationId);
 
 		const msgScope = this.getMessageScopeKey(conversationId);
-		const cachedMsgs = this.messagesStore.get(msgScope);
+		let cachedMsgs = this.messagesStore.get(msgScope);
 
-		// 如果本地已有该会话的历史消息，立刻渲染，杜绝空白并保留所有已发送消息
+		// 如果历史数据存在未归一化 conversationId 的消息，尝试合并并迁移
+		const rawScope = `${this.getScopeKey()}:${conversationId}`;
+		if (rawScope !== msgScope && this.messagesStore.has(rawScope)) {
+			const rawMsgs = this.messagesStore.get(rawScope) ?? [];
+			const combined = [...(cachedMsgs ?? []), ...rawMsgs]
+				.filter(
+					(m, i, arr) => arr.findIndex((x) => x.id === m.id) === i,
+				)
+				.sort((a, b) => a.timestamp - b.timestamp);
+			this.messagesStore.set(msgScope, combined);
+			this.messagesStore.delete(rawScope);
+			cachedMsgs = combined;
+		}
+
 		if (cachedMsgs && cachedMsgs.length > 0) {
 			this.messages = cachedMsgs;
 		} else {
 			this.messages = [];
-		}
-
-		// 若当前会话尚未解析出真实昵称或头像，触发异步水合
-		const conv = this.conversations.find(
-			(c) => c.conversationId === conversationId,
-		);
-		if (
-			conv?.targetUserId &&
-			(!conv.targetUserName ||
-				conv.targetUserName.startsWith("User ") ||
-				!conv.targetAvatarUrl)
-		) {
-			void this.hydrateConversationUser(conv.targetUserId);
 		}
 
 		await this.loadMessages(conversationId);
@@ -389,7 +605,8 @@ export class ChannelChatState {
 				const conv = this.conversations.find(
 					(c) =>
 						c.conversationId === conversationId ||
-						c.targetUserId === conversationId,
+						c.targetUserId === conversationId ||
+						c.conversationId.includes(conversationId),
 				);
 				if (
 					conv &&
@@ -422,7 +639,8 @@ export class ChannelChatState {
 
 		const channel = channelState.activeChannel;
 		const targetUserId =
-			this.activeConversation?.targetUserId || this.activeConversationId;
+			this.activeConversation?.targetUserId ||
+			this.normalizePartnerId(this.activeConversationId);
 		const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
 		const optimisticMsg: UniversalMessage = {
@@ -444,7 +662,7 @@ export class ChannelChatState {
 		this.saveToStorage();
 		this.isSending = true;
 
-		// 乐观更新会话列表最后消息
+		// 乐观更新会话列表最后消息与时间，并重新倒序排列
 		this.updateConversationLastMessage(this.activeConversationId, trimmed);
 
 		try {
@@ -482,6 +700,36 @@ export class ChannelChatState {
 		if (this.hydratingUserIds.has(userId)) return;
 		this.hydratingUserIds.add(userId);
 
+		// 1. 优先尝试本地网格与已知账号秒开水合
+		const cachedGrid = channelGridState.findCachedUser(userId);
+		if (
+			cachedGrid?.displayName &&
+			!cachedGrid.displayName.startsWith("User ")
+		) {
+			this.updateConversationUserProfile(userId, {
+				displayName: cachedGrid.displayName,
+				avatarUrl: cachedGrid.avatarThumbnailUrl,
+			});
+		}
+
+		const matchingAccount = channelState.accounts[
+			channelState.activeChannel
+		]?.find(
+			(a) =>
+				a.extraMeta?.profileId === userId ||
+				a.accountIdentifier === userId,
+		);
+		if (
+			matchingAccount?.name &&
+			!matchingAccount.name.startsWith("User ")
+		) {
+			this.updateConversationUserProfile(userId, {
+				displayName: matchingAccount.name,
+				avatarUrl: matchingAccount.avatarUrl,
+			});
+		}
+
+		// 2. 远端拉取资料补全
 		try {
 			const provider = channelState.currentProvider;
 			const account = channelState.currentAccount;
@@ -506,7 +754,12 @@ export class ChannelChatState {
 	): void {
 		let updated = false;
 		const nextConversations = this.conversations.map((c) => {
-			if (c.targetUserId === userId || c.conversationId === userId) {
+			const isMatch =
+				c.targetUserId === userId ||
+				c.conversationId === userId ||
+				c.conversationId.includes(userId);
+
+			if (isMatch) {
 				const hasValidName =
 					profile.displayName &&
 					!profile.displayName.startsWith("User ");
@@ -550,7 +803,8 @@ export class ChannelChatState {
 			(c) =>
 				c.conversationId === convId ||
 				c.conversationId === userIdStr ||
-				(Boolean(c.targetUserId) && c.targetUserId === userIdStr),
+				(Boolean(c.targetUserId) && c.targetUserId === userIdStr) ||
+				c.conversationId.includes(userIdStr),
 		);
 
 		const now = params.lastMessageTimestamp ?? Date.now();
@@ -602,7 +856,47 @@ export class ChannelChatState {
 
 		this.conversationsStore.set(scope, this.conversations);
 		this.saveToStorage();
+
+		if (
+			conv.targetUserId &&
+			(!conv.targetAvatarUrl || conv.targetUserName.startsWith("User "))
+		) {
+			void this.hydrateConversationUser(conv.targetUserId);
+		}
+
 		return conv;
+	}
+
+	updateConversationLastMessage(conversationId: string, text: string): void {
+		const partnerId = this.normalizePartnerId(conversationId);
+		let updated = false;
+		const now = Date.now();
+		const next = this.conversations.map((c) => {
+			if (
+				c.conversationId === conversationId ||
+				c.targetUserId === conversationId ||
+				c.targetUserId === partnerId ||
+				c.conversationId.includes(partnerId)
+			) {
+				updated = true;
+				return {
+					...c,
+					lastMessageText: text,
+					lastMessageTimestamp: now,
+				};
+			}
+			return c;
+		});
+
+		if (updated) {
+			this.conversations = next.sort(
+				(a, b) =>
+					(b.lastMessageTimestamp ?? 0) -
+					(a.lastMessageTimestamp ?? 0),
+			);
+			this.conversationsStore.set(this.getScopeKey(), this.conversations);
+			this.saveToStorage();
+		}
 	}
 
 	recordSentMessage(
@@ -625,7 +919,10 @@ export class ChannelChatState {
 		if (!localMsgs.some((m) => m.id === message.id)) {
 			const updatedMsgs = [...localMsgs, message];
 			this.messagesStore.set(msgScope, updatedMsgs);
-			if (this.activeConversationId === conv.conversationId) {
+			if (
+				this.activeConversationId === conv.conversationId ||
+				this.activeConversationId === userIdStr
+			) {
 				this.messages = updatedMsgs;
 			}
 			this.saveToStorage();
@@ -643,30 +940,6 @@ export class ChannelChatState {
 		const msgScope = this.getMessageScopeKey(conv.conversationId);
 		this.messages = this.messagesStore.get(msgScope) ?? [];
 		void this.loadMessages(conv.conversationId);
-	}
-
-	private updateConversationLastMessage(convId: string, text: string) {
-		const idx = this.conversations.findIndex(
-			(c) =>
-				c.conversationId === convId ||
-				(Boolean(c.targetUserId) && c.targetUserId === convId),
-		);
-		const conv = this.conversations[idx];
-		if (conv) {
-			const updated: UniversalConversation = {
-				...conv,
-				lastMessageText: text,
-				lastMessageTimestamp: Date.now(),
-			};
-			const rest = this.conversations.filter((_, i) => i !== idx);
-			this.conversations = [updated, ...rest].sort(
-				(a, b) =>
-					(b.lastMessageTimestamp ?? 0) -
-					(a.lastMessageTimestamp ?? 0),
-			);
-			this.conversationsStore.set(this.getScopeKey(), this.conversations);
-			this.saveToStorage();
-		}
 	}
 }
 
