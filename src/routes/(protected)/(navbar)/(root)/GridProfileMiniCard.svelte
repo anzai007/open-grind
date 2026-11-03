@@ -55,7 +55,7 @@
 		<!-- 快捷私信按钮：随机从激活模版组选择并发送 -->
 		<button
 			type="button"
-			class="absolute right-1.5 bottom-1.5 z-10 flex size-6.5 cursor-pointer items-center justify-center rounded-full bg-primary/95 text-primary-foreground shadow-md transition-transform hover:scale-110 active:scale-95 disabled:opacity-50"
+			class="absolute right-1.5 bottom-1.5 z-2 flex size-6.5 cursor-pointer items-center justify-center rounded-full bg-primary/95 text-primary-foreground shadow-md transition-transform hover:scale-110 active:scale-95 disabled:opacity-50"
 			title="快捷私信"
 			disabled={templateState.sendingUserIds.has(String(id))}
 			onclick={(e) => {

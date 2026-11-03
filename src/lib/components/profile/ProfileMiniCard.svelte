@@ -170,7 +170,7 @@
 		{onclick}
 		aria-label={anonymous ? "Profile" : undefined}
 		class={[
-			"@container relative flex aspect-square items-end overflow-hidden",
+			"@container relative isolate flex aspect-square items-end overflow-hidden",
 			className,
 		]}
 	>
@@ -179,7 +179,7 @@
 {:else}
 	<div
 		class={[
-			"@container relative flex aspect-square items-end overflow-hidden",
+			"@container relative isolate flex aspect-square items-end overflow-hidden",
 			className,
 		]}
 	>
