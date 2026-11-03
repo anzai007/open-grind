@@ -23,6 +23,12 @@
 	const hasAccount = $derived(
 		(channelState.accounts[channelState.activeChannel]?.length ?? 0) > 0,
 	);
+	const sortedConversations = $derived(
+		[...channelChatState.conversations].sort(
+			(a, b) =>
+				(b.lastMessageTimestamp ?? 0) - (a.lastMessageTimestamp ?? 0),
+		),
+	);
 
 	const currentScopeKey = $derived(
 		`${channelState.activeChannel}:${channelState.currentAccount?.id ?? "none"}`,
@@ -168,7 +174,7 @@
 						<Spinner class="size-4" />
 						<span>正在拉取会话列表...</span>
 					</div>
-				{:else if channelChatState.conversations.length === 0}
+				{:else if sortedConversations.length === 0}
 					<div
 						class="flex flex-col items-center justify-center p-8 text-center text-muted-foreground"
 					>
@@ -176,7 +182,7 @@
 						<p class="mt-2 text-xs">暂无历史聊天会话</p>
 					</div>
 				{:else}
-					{#each channelChatState.conversations as conv (conv.conversationId)}
+					{#each sortedConversations as conv (conv.conversationId)}
 						{@const isSelected =
 							conv.conversationId ===
 							channelChatState.activeConversationId}

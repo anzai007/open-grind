@@ -127,7 +127,12 @@ export class ChannelChatState {
 
 	switchScope(): void {
 		const scope = this.getScopeKey();
-		this.conversations = this.conversationsStore.get(scope) ?? [];
+		this.conversations = [
+			...(this.conversationsStore.get(scope) ?? []),
+		].sort(
+			(a, b) =>
+				(b.lastMessageTimestamp ?? 0) - (a.lastMessageTimestamp ?? 0),
+		);
 		this.activeConversationId = null;
 		this.messages = [];
 	}
@@ -144,7 +149,11 @@ export class ChannelChatState {
 			this.conversations.length === 0 &&
 			this.conversationsStore.has(scope)
 		) {
-			this.conversations = this.conversationsStore.get(scope)!;
+			this.conversations = [...this.conversationsStore.get(scope)!].sort(
+				(a, b) =>
+					(b.lastMessageTimestamp ?? 0) -
+					(a.lastMessageTimestamp ?? 0),
+			);
 		}
 
 		if (!silent) {
@@ -240,7 +249,11 @@ export class ChannelChatState {
 					),
 			);
 
-			const combined = [...localDrafts, ...mergedServerItems];
+			const combined = [...localDrafts, ...mergedServerItems].sort(
+				(a, b) =>
+					(b.lastMessageTimestamp ?? 0) -
+					(a.lastMessageTimestamp ?? 0),
+			);
 			this.conversations = combined;
 			this.conversationsStore.set(scope, combined);
 			this.saveToStorage();
@@ -552,7 +565,11 @@ export class ChannelChatState {
 				targetUserName: params.displayName || `User ${userIdStr}`,
 				unreadCount: 0,
 			};
-			this.conversations = [conv, ...this.conversations];
+			this.conversations = [conv, ...this.conversations].sort(
+				(a, b) =>
+					(b.lastMessageTimestamp ?? 0) -
+					(a.lastMessageTimestamp ?? 0),
+			);
 		} else {
 			conv = {
 				...conv,
@@ -576,7 +593,11 @@ export class ChannelChatState {
 					(!conv!.targetUserId ||
 						c.targetUserId !== conv!.targetUserId),
 			);
-			this.conversations = [conv, ...rest];
+			this.conversations = [conv, ...rest].sort(
+				(a, b) =>
+					(b.lastMessageTimestamp ?? 0) -
+					(a.lastMessageTimestamp ?? 0),
+			);
 		}
 
 		this.conversationsStore.set(scope, this.conversations);
@@ -638,7 +659,11 @@ export class ChannelChatState {
 				lastMessageTimestamp: Date.now(),
 			};
 			const rest = this.conversations.filter((_, i) => i !== idx);
-			this.conversations = [updated, ...rest];
+			this.conversations = [updated, ...rest].sort(
+				(a, b) =>
+					(b.lastMessageTimestamp ?? 0) -
+					(a.lastMessageTimestamp ?? 0),
+			);
 			this.conversationsStore.set(this.getScopeKey(), this.conversations);
 			this.saveToStorage();
 		}

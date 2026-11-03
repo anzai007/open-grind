@@ -18,7 +18,11 @@ export const load: LayoutLoad = async ({ url }) => {
 			.then((preferences) => preferences.onboardingComplete)
 			.catch(() => true));
 
-	if (!onboardingComplete && url.pathname !== "/onboarding") {
+	if (
+		!onboardingComplete &&
+		url.pathname !== "/onboarding" &&
+		!url.pathname.startsWith("/network-logger")
+	) {
 		redirect(303, "/onboarding");
 	}
 	if (onboardingComplete && url.pathname === "/onboarding") {

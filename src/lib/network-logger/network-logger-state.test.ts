@@ -91,4 +91,29 @@ describe("NetworkLoggerState", () => {
 		networkLoggerState.clearAll();
 		expect(networkLoggerState.wsLogs.length).toBe(0);
 	});
+
+	it("syncs logs across windows via BroadcastChannel", async () => {
+		const peerChannel = new BroadcastChannel("open-grind:network-logger");
+		const received: Array<{ type: string; entry?: { url: string } }> = [];
+		peerChannel.onmessage = (e) => {
+			received.push(e.data);
+		};
+
+		networkLoggerState.startHttp({ method: "POST", url: "/v1/remote" });
+
+		await new Promise((r) => setTimeout(r, 30));
+
+		expect(
+			received.some(
+				(m) => m.type === "START_HTTP" && m.entry?.url === "/v1/remote",
+			),
+		).toBe(true);
+
+		// Simulate peer window posting CLEAR_ALL
+		peerChannel.postMessage({ type: "CLEAR_ALL" });
+		await new Promise((r) => setTimeout(r, 30));
+
+		expect(networkLoggerState.httpLogs.length).toBe(0);
+		peerChannel.close();
+	});
 });

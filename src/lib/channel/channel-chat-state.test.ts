@@ -263,4 +263,81 @@ describe("ChannelChatState", () => {
 		);
 		expect(channelChatState.messages[0]!.isFromMe).toBe(true);
 	});
+
+	it("sorts conversations in descending order by lastMessageTimestamp", async () => {
+		const currentProvider = channelState.currentProvider;
+		vi.spyOn(currentProvider, "getConversations").mockResolvedValue({
+			hasNext: false,
+			items: [
+				{
+					channel: "scruff",
+					conversationId: "user-old",
+					lastMessageText: "Old message",
+					lastMessageTimestamp: 1000,
+					targetUserId: "user-old",
+					targetUserName: "Old Friend",
+					unreadCount: 0,
+				},
+				{
+					channel: "scruff",
+					conversationId: "user-new",
+					lastMessageText: "Newest message",
+					lastMessageTimestamp: 5000,
+					targetUserId: "user-new",
+					targetUserName: "New Friend",
+					unreadCount: 1,
+				},
+				{
+					channel: "scruff",
+					conversationId: "user-mid",
+					lastMessageText: "Middle message",
+					lastMessageTimestamp: 3000,
+					targetUserId: "user-mid",
+					targetUserName: "Mid Friend",
+					unreadCount: 0,
+				},
+			],
+			offset: 0,
+			total: 3,
+		});
+
+		await channelChatState.loadConversations();
+
+		expect(channelChatState.conversations).toHaveLength(3);
+		expect(channelChatState.conversations[0]!.conversationId).toBe(
+			"user-new",
+		);
+		expect(channelChatState.conversations[1]!.conversationId).toBe(
+			"user-mid",
+		);
+		expect(channelChatState.conversations[2]!.conversationId).toBe(
+			"user-old",
+		);
+
+		// When sending a quick DM to user-old, its lastMessageTimestamp updates to now, bringing it to top
+		channelChatState.recordSentMessage(
+			{ id: "user-old", displayName: "Old Friend" },
+			{
+				channel: "scruff",
+				conversationId: "user-old",
+				id: "msg_new_top",
+				isFromMe: true,
+				recipientId: "user-old",
+				senderId: "me",
+				status: "sent",
+				text: "Hello again!",
+				timestamp: 99999,
+			},
+		);
+
+		expect(channelChatState.conversations[0]!.conversationId).toBe(
+			"user-old",
+		);
+		expect(channelChatState.conversations[1]!.conversationId).toBe(
+			"user-new",
+		);
+		expect(channelChatState.conversations[2]!.conversationId).toBe(
+			"user-mid",
+		);
+	});
 });

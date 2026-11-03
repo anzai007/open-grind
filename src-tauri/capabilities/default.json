@@ -3,7 +3,8 @@
 	"identifier": "default",
 	"description": "Shared capability for all platforms",
 	"windows": [
-		"main"
+		"main",
+		"network-logger"
 	],
 	"permissions": [
 		"core:default",

@@ -2,6 +2,7 @@ pub mod auth;
 pub mod client;
 pub mod facebook_oauth;
 pub mod google_oauth;
+pub mod network_logger;
 pub mod oauth;
 pub mod push;
 pub mod recaptcha;

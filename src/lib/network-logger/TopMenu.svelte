@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ArrowSquareOutIcon from "phosphor-svelte/lib/ArrowSquareOutIcon";
 	import ChatCircleDotsIcon from "phosphor-svelte/lib/ChatCircleDotsIcon";
 	import ListIcon from "phosphor-svelte/lib/ListIcon";
 	import PulseIcon from "phosphor-svelte/lib/PulseIcon";
@@ -115,7 +116,7 @@
 			>
 				<div class="flex items-center gap-2">
 					<PulseIcon class="size-4 text-primary" weight="bold" />
-					<span class="text-sm font-medium">查看请求日志</span>
+					<span class="text-sm font-medium">查看日志 (弹窗)</span>
 				</div>
 				<div class="flex items-center gap-1.5">
 					{#if totalCount > 0}
@@ -130,6 +131,20 @@
 						>⌘⇧L</span
 					>
 				</div>
+			</DropdownMenu.Item>
+
+			<DropdownMenu.Item
+				onSelect={() => void networkLoggerState.openDetachedWindow()}
+				class="flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-2 hover:bg-accent"
+			>
+				<div class="flex items-center gap-2">
+					<ArrowSquareOutIcon
+						class="size-4 text-primary"
+						weight="bold"
+					/>
+					<span class="text-sm font-medium">独立日志窗口</span>
+				</div>
+				<span class="text-[10px] text-muted-foreground">多窗口</span>
 			</DropdownMenu.Item>
 		</DropdownMenu.Group>
 	</DropdownMenu.Content>
