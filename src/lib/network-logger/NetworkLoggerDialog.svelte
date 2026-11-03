@@ -163,8 +163,8 @@
 
 <Dialog.Root bind:open={networkLoggerState.open}>
 	<Dialog.Content
-		class="flex h-[92vh] max-h-[92vh] w-[96vw] max-w-[1560px] min-w-[96vw] flex-col gap-0 overflow-hidden rounded-2xl border border-border bg-card p-0 text-card-foreground shadow-2xl"
-		style="width: 96vw; max-width: 1560px;"
+		class="flex h-[92vh] max-h-[92vh] w-[96vw] max-w-[1560px] min-w-0 flex-col gap-0 overflow-hidden rounded-2xl border border-border bg-card p-0 text-card-foreground shadow-2xl sm:max-w-none"
+		style="width: min(96vw, 1560px); max-width: 96vw;"
 		showCloseButton={false}
 	>
 		<!-- Header -->
@@ -385,9 +385,9 @@
 				class={[
 					"scrollbar-thin flex flex-col overflow-y-auto border-r border-border bg-card transition-all",
 					{
-						"hidden md:flex md:w-[380px] md:min-w-[340px] md:shrink-0":
+						"hidden lg:flex lg:w-[380px] lg:min-w-[340px] lg:shrink-0":
 							mobileView === "detail",
-						"w-full md:w-[380px] md:min-w-[340px] md:shrink-0":
+						"w-full lg:w-[380px] lg:min-w-[340px] lg:shrink-0":
 							mobileView !== "detail",
 					},
 				]}
@@ -414,7 +414,7 @@
 				class={[
 					"scrollbar-thin min-w-0 flex-1 flex-col overflow-y-auto bg-card p-4 transition-all",
 					{
-						"hidden md:flex": mobileView === "list",
+						"hidden lg:flex": mobileView === "list",
 						"flex w-full": mobileView !== "list",
 					},
 				]}

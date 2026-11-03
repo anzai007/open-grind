@@ -150,3 +150,21 @@ export interface ChannelAccount {
 	lastGeohash?: string; // 绑定的最后一次筛选定位点 (Geohash)
 	lastLocationName?: string; // 绑定的定位点城市或区域名称
 }
+
+export interface DmTemplate {
+	id: string;
+	channel: SocialChannelType;
+	groupCode: string;
+	groupName: string;
+	title: string;
+	content: string;
+	enabled: boolean;
+	createdAt: number;
+}
+
+export interface DmTemplateGroup {
+	channel: SocialChannelType;
+	groupCode: string;
+	groupName: string;
+	languageCode?: string;
+}

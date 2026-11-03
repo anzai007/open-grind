@@ -190,6 +190,20 @@ export class ChannelChatState {
 					local?.targetAvatarUrl ||
 					cachedGrid?.avatarThumbnailUrl;
 
+				const isCurrentlyActive =
+					this.activeConversationId === s.conversationId ||
+					(Boolean(s.targetUserId) &&
+						this.activeConversationId === s.targetUserId);
+
+				const unreadCount = isCurrentlyActive
+					? 0
+					: local &&
+						  local.unreadCount === 0 &&
+						  (local.lastMessageTimestamp ?? 0) >=
+								(s.lastMessageTimestamp ?? 0)
+						? 0
+						: s.unreadCount;
+
 				if (
 					local &&
 					(local.lastMessageTimestamp ?? 0) >
@@ -202,9 +216,10 @@ export class ChannelChatState {
 						lastMessageText:
 							local.lastMessageText || s.lastMessageText,
 						lastMessageTimestamp: local.lastMessageTimestamp,
+						unreadCount,
 					};
 				}
-				return { ...s, targetUserName, targetAvatarUrl };
+				return { ...s, targetUserName, targetAvatarUrl, unreadCount };
 			});
 
 			// 保留本地创建但尚未入库服务端的草稿/新打开会话（避免点击“发私信”后 1 秒被服务器空列表冲掉）
@@ -245,8 +260,32 @@ export class ChannelChatState {
 		}
 	}
 
+	markConversationAsRead(conversationId: string): void {
+		let updated = false;
+		const next = this.conversations.map((c) => {
+			if (
+				(c.conversationId === conversationId ||
+					c.targetUserId === conversationId) &&
+				c.unreadCount > 0
+			) {
+				updated = true;
+				return { ...c, unreadCount: 0 };
+			}
+			return c;
+		});
+
+		if (updated) {
+			this.conversations = next;
+			this.conversationsStore.set(this.getScopeKey(), next);
+			this.saveToStorage();
+		}
+	}
+
 	async selectConversation(conversationId: string): Promise<void> {
 		this.activeConversationId = conversationId;
+		// 立即将未读数归零，清除会话卡片上的未读标
+		this.markConversationAsRead(conversationId);
+
 		const msgScope = this.getMessageScopeKey(conversationId);
 		const cachedMsgs = this.messagesStore.get(msgScope);
 
@@ -505,6 +544,7 @@ export class ChannelChatState {
 		}
 
 		this.activeConversationId = conv.conversationId;
+		this.markConversationAsRead(conv.conversationId);
 		const msgScope = this.getMessageScopeKey(conv.conversationId);
 		this.messages = this.messagesStore.get(msgScope) ?? [];
 		void this.loadMessages(conv.conversationId);

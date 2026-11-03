@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ChatCircleDotsIcon from "phosphor-svelte/lib/ChatCircleDotsIcon";
 	import ListIcon from "phosphor-svelte/lib/ListIcon";
 	import PulseIcon from "phosphor-svelte/lib/PulseIcon";
 	import UsersThreeIcon from "phosphor-svelte/lib/UsersThreeIcon";
@@ -6,6 +7,7 @@
 	import { tinykeys } from "tinykeys";
 
 	import { channelState } from "$lib/channel/channel-state.svelte";
+	import { templateState } from "$lib/channel/template-state.svelte";
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button } from "$lib/components/ui/button";
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
@@ -25,6 +27,9 @@
 
 	const totalCount = $derived(
 		networkLoggerState.httpLogs.length + networkLoggerState.wsLogs.length,
+	);
+	const activeGroup = $derived(
+		templateState.getActiveGroup(channelState.activeChannel),
 	);
 </script>
 
@@ -52,7 +57,7 @@
 		{/snippet}
 	</DropdownMenu.Trigger>
 
-	<DropdownMenu.Content align="end" class="w-56 p-1.5 shadow-xl">
+	<DropdownMenu.Content align="end" class="w-60 p-1.5 shadow-xl">
 		<DropdownMenu.Group>
 			<DropdownMenu.GroupHeading
 				class="px-2 py-1 text-xs font-medium text-muted-foreground"
@@ -73,6 +78,26 @@
 				>
 					{channelState.activeChannel}
 				</Badge>
+			</DropdownMenu.Item>
+
+			<DropdownMenu.Item
+				onSelect={() => templateState.openDialog()}
+				class="flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-2 hover:bg-accent"
+			>
+				<div class="flex items-center gap-2">
+					<ChatCircleDotsIcon
+						class="size-4 text-primary"
+						weight="bold"
+					/>
+					<span class="text-sm font-medium">管理私信模版</span>
+				</div>
+				{#if activeGroup}
+					<span
+						class="max-w-24 truncate text-[11px] font-medium text-muted-foreground"
+					>
+						{activeGroup.groupName}
+					</span>
+				{/if}
 			</DropdownMenu.Item>
 		</DropdownMenu.Group>
 

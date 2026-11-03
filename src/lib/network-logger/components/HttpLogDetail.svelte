@@ -49,7 +49,7 @@
 {#if entry}
 	<div class="flex flex-col gap-4">
 		<!-- Mobile back button -->
-		<div class="mb-1 flex items-center md:hidden">
+		<div class="mb-1 flex items-center lg:hidden">
 			<Button
 				variant="ghost"
 				size="xs"

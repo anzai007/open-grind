@@ -35,6 +35,36 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 		this.client = new RelayClient({ platform });
 	}
 
+	private async ensureAccountProxy(
+		account?: ChannelAccount,
+	): Promise<ChannelAccount | undefined> {
+		if (
+			!account?.accountIdentifier ||
+			(account.proxyUrl && account.proxyUrl.includes("@"))
+		) {
+			return account;
+		}
+		try {
+			const info = await queryPlatformAccount(
+				this.channel === "jackd" ? "jackd" : "scruff",
+				account.accountIdentifier,
+				2000,
+			);
+			if (info?.proxyUrl) {
+				return {
+					...account,
+					proxyUrl: resolveEffectiveProxy(
+						account.proxyUrl,
+						info.proxyUrl,
+					),
+				};
+			}
+		} catch {
+			// 降级使用原配置
+		}
+		return account;
+	}
+
 	async getNearbyUsers(
 		params: NearbyQueryParams,
 	): Promise<PageResult<UniversalGridUser>> {
@@ -54,30 +84,7 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 			query.hashtags = JSON.stringify(params.filterTags);
 		}
 
-		let account = params.account;
-		if (
-			account?.accountIdentifier &&
-			(!account.proxyUrl || !account.proxyUrl.includes("@"))
-		) {
-			try {
-				const platInfo = await queryPlatformAccount(
-					this.channel === "jackd" ? "jackd" : "scruff",
-					account.accountIdentifier,
-					2000,
-				);
-				if (platInfo?.proxyUrl) {
-					account = {
-						...account,
-						proxyUrl: resolveEffectiveProxy(
-							account.proxyUrl,
-							platInfo.proxyUrl,
-						),
-					};
-				}
-			} catch {
-				// 降级使用原配置
-			}
-		}
+		const account = await this.ensureAccountProxy(params.account);
 
 		const res = await this.client.request<{
 			results?: RawScruffProfile[];
@@ -156,12 +163,14 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 			return cached.profile;
 		}
 
+		const effAccount = await this.ensureAccountProxy(account);
+
 		// 2. 直接单次请求 omni-relay 中继用户详情，快速且唯一调用
 		const res = await this.client.request<{
 			data?: RawScruffProfile[];
 			results?: RawScruffProfile[];
 		}>({
-			account,
+			account: effAccount,
 			method: "GET",
 			path: "/app/profile",
 			query: {
@@ -190,30 +199,7 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 	async getConversations(
 		params?: ConversationQueryParams,
 	): Promise<PageResult<UniversalConversation>> {
-		let account = params?.account;
-		if (
-			account?.accountIdentifier &&
-			(!account.proxyUrl || !account.proxyUrl.includes("@"))
-		) {
-			try {
-				const platInfo = await queryPlatformAccount(
-					this.channel === "jackd" ? "jackd" : "scruff",
-					account.accountIdentifier,
-					2000,
-				);
-				if (platInfo?.proxyUrl) {
-					account = {
-						...account,
-						proxyUrl: resolveEffectiveProxy(
-							account.proxyUrl,
-							platInfo.proxyUrl,
-						),
-					};
-				}
-			} catch {
-				// 降级使用原配置
-			}
-		}
+		const account = await this.ensureAccountProxy(params?.account);
 
 		const userIdentifier =
 			(account?.extraMeta?.profileId as string | undefined) ||
@@ -464,30 +450,7 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 		conversationId: string,
 		params?: MessageQueryParams,
 	): Promise<UniversalMessage[]> {
-		let account = params?.account;
-		if (
-			account?.accountIdentifier &&
-			(!account.proxyUrl || !account.proxyUrl.includes("@"))
-		) {
-			try {
-				const platInfo = await queryPlatformAccount(
-					this.channel === "jackd" ? "jackd" : "scruff",
-					account.accountIdentifier,
-					2000,
-				);
-				if (platInfo?.proxyUrl) {
-					account = {
-						...account,
-						proxyUrl: resolveEffectiveProxy(
-							account.proxyUrl,
-							platInfo.proxyUrl,
-						),
-					};
-				}
-			} catch {
-				// 降级使用原配置
-			}
-		}
+		const account = await this.ensureAccountProxy(params?.account);
 
 		const metaId = account?.extraMeta?.profileId;
 		const myId =
@@ -574,30 +537,7 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 	}
 
 	async sendMessage(params: SendMessageParams): Promise<UniversalMessage> {
-		let account = params.account;
-		if (
-			account?.accountIdentifier &&
-			(!account.proxyUrl || !account.proxyUrl.includes("@"))
-		) {
-			try {
-				const platInfo = await queryPlatformAccount(
-					this.channel === "jackd" ? "jackd" : "scruff",
-					account.accountIdentifier,
-					2000,
-				);
-				if (platInfo?.proxyUrl) {
-					account = {
-						...account,
-						proxyUrl: resolveEffectiveProxy(
-							account.proxyUrl,
-							platInfo.proxyUrl,
-						),
-					};
-				}
-			} catch {
-				// 降级使用原配置
-			}
-		}
+		const account = await this.ensureAccountProxy(params.account);
 
 		const guid = crypto.randomUUID();
 		const requestGuid = crypto.randomUUID();

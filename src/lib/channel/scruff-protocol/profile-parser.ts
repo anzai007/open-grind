@@ -54,6 +54,7 @@ export function parseRawScruffProfile(
 				photos.push({
 					fullsizeUrl: full || thumb,
 					id: String(ph.id || ph.thumbnail_key),
+					isAvatar: photos.length === 0,
 					thumbnailUrl: thumb,
 				});
 			}
