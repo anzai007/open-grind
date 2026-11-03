@@ -25,6 +25,8 @@ export class ChannelChatState {
 	>();
 	private messagesStore = new SvelteMap<string, UniversalMessage[]>();
 	private pollingTimer: ReturnType<typeof setInterval> | null = null;
+	private isFetchingConversations = false;
+	private isFetchingMessages = false;
 
 	constructor() {
 		this.loadFromStorage();
@@ -131,6 +133,8 @@ export class ChannelChatState {
 	async loadConversations(silent = false): Promise<void> {
 		const channel = channelState.activeChannel;
 		if (channel === "grindr") return;
+		if (this.isFetchingConversations) return;
+		this.isFetchingConversations = true;
 
 		const scope = this.getScopeKey();
 		// 先尝试从内存或持久化存储秒级恢复已有会话列表
@@ -198,6 +202,7 @@ export class ChannelChatState {
 				this.error = e instanceof Error ? e.message : String(e);
 			}
 		} finally {
+			this.isFetchingConversations = false;
 			if (!silent) {
 				this.isLoadingConversations = false;
 			}
@@ -222,6 +227,8 @@ export class ChannelChatState {
 	async loadMessages(conversationId: string, silent = false): Promise<void> {
 		const channel = channelState.activeChannel;
 		if (channel === "grindr") return;
+		if (this.isFetchingMessages) return;
+		this.isFetchingMessages = true;
 
 		const msgScope = this.getMessageScopeKey(conversationId);
 		if (!silent) {
@@ -273,6 +280,7 @@ export class ChannelChatState {
 				this.error = e instanceof Error ? e.message : String(e);
 			}
 		} finally {
+			this.isFetchingMessages = false;
 			if (!silent) {
 				this.isLoadingMessages = false;
 			}

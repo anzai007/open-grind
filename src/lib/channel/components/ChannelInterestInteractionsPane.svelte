@@ -25,29 +25,36 @@
 	const isJackd = $derived(channelState.activeChannel === "jackd");
 
 	let lastScopeKey: string | null = null;
+	let hasLoadedForScope = false;
 	const scopeKey = $derived(
 		`${channelState.activeChannel}:${currentAccount?.id ?? "none"}`,
 	);
 
 	$effect(() => {
 		const key = scopeKey;
-		if (lastScopeKey === key) return;
-		lastScopeKey = key;
-		if (hasAccount) {
-			void loadInteractions();
-		} else {
+		if (!hasAccount) {
+			lastScopeKey = null;
+			hasLoadedForScope = false;
+			interactions = [];
+			error = null;
+			return;
+		}
+
+		if (lastScopeKey !== key) {
+			lastScopeKey = key;
+			hasLoadedForScope = false;
 			interactions = [];
 			error = null;
 		}
-	});
 
-	$effect(() => {
-		if (active && hasAccount && interactions.length === 0 && !isLoading) {
+		if (active && !hasLoadedForScope && !isLoading) {
+			hasLoadedForScope = true;
 			void loadInteractions();
 		}
 	});
 
-	async function loadInteractions() {
+	async function loadInteractions(force = false) {
+		if (isLoading && !force) return;
 		const provider = channelState.currentProvider;
 		if (!provider.getInteractions) {
 			interactions = [];

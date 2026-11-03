@@ -33,7 +33,8 @@
 		}
 	});
 
-	async function loadViewers() {
+	async function loadViewers(force = false) {
+		if (isLoading && !force) return;
 		const provider = channelState.currentProvider;
 		if (!provider.getViewers) {
 			viewers = [];
