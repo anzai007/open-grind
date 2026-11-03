@@ -2,10 +2,14 @@ import { getCascadeV4 } from "$lib/api/browse/grid";
 import { signedInProfileId } from "$lib/api/current-session";
 import { sendTap } from "$lib/api/interest/taps";
 import { getConversations } from "$lib/api/messaging/conversations";
-import { getConversationMessages } from "$lib/api/messaging/messages";
+import {
+	getConversationMessages,
+	sendMessage as sendGrindrRestMessage,
+} from "$lib/api/messaging/messages";
 import { getProfile } from "$lib/api/users/profiles";
 import { encodeGeohash } from "$lib/model/geohash";
 import { TapType } from "$lib/model/interest/taps";
+import { previewLabel } from "$lib/model/messaging/message-preview";
 import { sexualPositions } from "$lib/model/users/profiles";
 import { profileMediaUrl } from "$lib/util/media";
 import type {
@@ -16,6 +20,7 @@ import type {
 	SocialChannelProvider,
 	VerifyAccountResult,
 } from "../provider";
+import { relayImWs } from "../scruff-protocol/relay-im-ws.svelte";
 import {
 	CHANNEL_METAS,
 	type ChannelMeta,
@@ -191,6 +196,7 @@ export class GrindrProvider implements SocialChannelProvider {
 	): Promise<PageResult<UniversalConversation>> {
 		const page = Math.floor((params?.offset ?? 0) / 20) + 1;
 		const response = await getConversations({ page });
+		const myId = await signedInProfileId();
 
 		const items: UniversalConversation[] = [];
 		for (const entry of response.entries) {
@@ -199,7 +205,13 @@ export class GrindrProvider implements SocialChannelProvider {
 				entry.type === "partial_conversation_v1"
 			) {
 				const conv = entry.data;
-				const other = conv.participants[0];
+				const other =
+					conv.participants.find(
+						(p) => myId === null || p.profileId !== myId,
+					) || conv.participants[0];
+				const lastText =
+					previewLabel(conv.preview) || conv.preview?.text || "";
+
 				items.push({
 					channel: "grindr",
 					conversationId: conv.conversationId,
@@ -212,7 +224,7 @@ export class GrindrProvider implements SocialChannelProvider {
 								size: "thumb",
 							})
 						: undefined,
-					lastMessageText: conv.preview?.text || "",
+					lastMessageText: lastText,
 					lastMessageTimestamp: conv.lastActivityTimestamp || 0,
 					unreadCount: conv.unreadCount ?? 0,
 					rawPayload: conv,
@@ -239,10 +251,33 @@ export class GrindrProvider implements SocialChannelProvider {
 
 		const myId = await signedInProfileId();
 		return response.messages.map((m) => {
-			const bodyObj = m.body as Record<string, unknown> | null;
-			const text = typeof bodyObj?.text === "string" ? bodyObj.text : "";
-			const mediaUrl =
-				typeof bodyObj?.url === "string" ? bodyObj.url : undefined;
+			let text: string;
+			let mediaUrl: string | undefined;
+
+			if (m.type === "Text") {
+				text = m.body.text;
+			} else if (m.type === "Image") {
+				text = "[图片]";
+				if (m.body.imageHash) {
+					mediaUrl = profileMediaUrl({
+						mediaHash: m.body.imageHash,
+						size: "thumb",
+					});
+				}
+			} else if (m.type === "Album") {
+				text = "[相册]";
+			} else if (m.type === "Audio") {
+				text = "[语音]";
+			} else if (m.type === "Location") {
+				text = "[位置]";
+			} else {
+				const bodyObj = m.body as Record<string, unknown> | null;
+				text =
+					typeof bodyObj?.text === "string"
+						? bodyObj.text
+						: `[${m.type}]`;
+			}
+
 			return {
 				channel: "grindr",
 				id: m.messageId,
@@ -259,20 +294,62 @@ export class GrindrProvider implements SocialChannelProvider {
 	}
 
 	async sendMessage(params: SendMessageParams): Promise<UniversalMessage> {
-		// Basic stub for message send (calls WebSocket or HTTP chat send)
-		await Promise.resolve();
-		const now = Date.now();
-		return {
-			channel: "grindr",
-			id: `grindr-msg-${now}`,
-			conversationId: params.conversationId || "",
-			senderId: "me",
-			recipientId: params.targetUserId,
-			isFromMe: true,
-			text: params.text,
-			timestamp: now,
-			status: "sent",
-		};
+		const myProfileId = await signedInProfileId();
+		const myIdStr = myProfileId ? String(myProfileId) : "me";
+		const targetId = params.targetUserId;
+
+		// 1. 优先走统一 WSS 长链
+		if (relayImWs.connected && relayImWs.activePlatform === "grindr") {
+			try {
+				const res = await relayImWs.sendTextMessage({
+					channel: "grindr",
+					sender: myIdStr,
+					target: targetId,
+					text: params.text,
+					conversationId: params.conversationId,
+				});
+				return {
+					channel: "grindr",
+					id: res.messageId,
+					conversationId:
+						params.conversationId || res.conversationId || "",
+					senderId: myIdStr,
+					recipientId: targetId,
+					isFromMe: true,
+					text: params.text,
+					timestamp: Date.parse(res.senderTime) || Date.now(),
+					status: "sent",
+				};
+			} catch (wsErr) {
+				console.warn(
+					"[GrindrProvider] WSS send failed, trying HTTP fallback:",
+					wsErr,
+				);
+			}
+		}
+
+		// 2. 回退走 Grindr 官方 HTTP 发信接口
+		const targetNum = Number(targetId);
+		if (!isNaN(targetNum) && targetNum > 0) {
+			const sent = await sendGrindrRestMessage({
+				toUserId: targetNum,
+				message: { type: "Text", body: { text: params.text } },
+			});
+			return {
+				channel: "grindr",
+				id: sent.messageId,
+				conversationId: sent.conversationId,
+				senderId: String(sent.senderId),
+				recipientId: targetId,
+				isFromMe: true,
+				text: params.text,
+				timestamp: sent.timestamp,
+				status: "sent",
+				rawPayload: sent,
+			};
+		}
+
+		throw new Error(`Invalid target user ID for Grindr: ${targetId}`);
 	}
 
 	async sendInteraction(

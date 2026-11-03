@@ -1,5 +1,6 @@
 import { SvelteMap } from "svelte/reactivity";
 
+import { signedInProfileId } from "$lib/api/current-session";
 import {
 	preferencesSnapshot,
 	setPreferences,
@@ -55,6 +56,7 @@ export class ChannelState {
 		this.registerProvider("scruff", new ScruffProvider());
 		this.registerProvider("jackd", new JackdProvider());
 		this.loadFromStorage();
+		void this.syncGrindrSessionAccount();
 		if (this.activeChannel !== "grindr") {
 			void this.checkAndSyncActiveAccount(this.activeChannel);
 		}
@@ -75,11 +77,45 @@ export class ChannelState {
 
 	currentAccount = $derived.by<ChannelAccount | undefined>(() => {
 		const accountId = this.activeAccountIds[this.activeChannel];
-		if (!accountId) return undefined;
-		return this.accounts[this.activeChannel].find(
-			(a) => a.id === accountId,
-		);
+		if (accountId) {
+			const found = this.accounts[this.activeChannel].find(
+				(a) => a.id === accountId,
+			);
+			if (found) return found;
+		}
+		if (
+			this.activeChannel === "grindr" &&
+			this.accounts.grindr.length > 0
+		) {
+			return this.accounts.grindr[0];
+		}
+		return undefined;
 	});
+
+	async syncGrindrSessionAccount(profileId?: number | null): Promise<void> {
+		const pid = profileId ?? (await signedInProfileId().catch(() => null));
+		if (!pid) return;
+		const id = `grindr_${pid}`;
+		const existing = this.accounts.grindr.find(
+			(a) => a.id === id || a.accountIdentifier === String(pid),
+		);
+		const account: ChannelAccount = existing ?? {
+			id,
+			channel: "grindr",
+			accountIdentifier: String(pid),
+			name: `Grindr (${pid})`,
+			isEnabled: true,
+			createdAt: Date.now(),
+			extraMeta: { profileId: String(pid) },
+		};
+		if (!existing) {
+			this.accounts.grindr.push(account);
+		}
+		if (!this.activeAccountIds.grindr) {
+			this.activeAccountIds.grindr = account.id;
+		}
+		this.saveToStorage();
+	}
 
 	registerProvider(
 		channel: SocialChannelType,

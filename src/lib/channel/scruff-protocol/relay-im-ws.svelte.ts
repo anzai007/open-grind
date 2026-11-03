@@ -1,5 +1,6 @@
 import { SvelteDate, SvelteMap, SvelteSet } from "svelte/reactivity";
 
+import { signedInProfileId } from "$lib/api/current-session";
 import { networkLoggerState } from "$lib/network-logger/network-logger-state.svelte";
 import type { ChannelAccount } from "../types";
 import { DEFAULT_RELAY_BASE_URL, DEFAULT_RELAY_KEY } from "./relay-client";
@@ -35,12 +36,12 @@ export type RelayWsStatus = "disconnected" | "connecting" | "connected";
 
 export class RelayImWsClient {
 	status = $state<RelayWsStatus>("disconnected");
-	activePlatform = $state<"scruff" | "jackd" | null>(null);
+	activePlatform = $state<"grindr" | "scruff" | "jackd" | null>(null);
 	activeProfileId = $state<string | null>(null);
 	activeAccountIdentifier = $state<string | null>(null);
 
 	private socket: WebSocket | null = null;
-	private currentPlatform: "scruff" | "jackd" | null = null;
+	private currentPlatform: "grindr" | "scruff" | "jackd" | null = null;
 	private currentAccount: ChannelAccount | null = null;
 	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	private reconnectAttempts = 0;
@@ -69,7 +70,10 @@ export class RelayImWsClient {
 		};
 	}
 
-	connect(platform: "scruff" | "jackd", account?: ChannelAccount): void {
+	connect(
+		platform: "grindr" | "scruff" | "jackd",
+		account?: ChannelAccount,
+	): void {
 		if (
 			this.socket &&
 			this.currentPlatform === platform &&
@@ -90,6 +94,20 @@ export class RelayImWsClient {
 			(account?.extraMeta?.profileId as string | undefined) ||
 			account?.accountIdentifier ||
 			null;
+
+		if (!this.activeProfileId && platform === "grindr") {
+			signedInProfileId()
+				.then((pid) => {
+					if (pid && this.activePlatform === "grindr") {
+						this.activeProfileId = String(pid);
+						this.activeAccountIdentifier = String(pid);
+						if (this.status === "connected") {
+							void this.sendUserConnect(String(pid));
+						}
+					}
+				})
+				.catch(() => {});
+		}
 
 		this.initWebSocket();
 	}
@@ -346,15 +364,18 @@ export class RelayImWsClient {
 		});
 	}
 
-	async sendUserConnect(user: string): Promise<boolean> {
+	async sendUserConnect(
+		user: string,
+		token?: string,
+		proxy?: string,
+	): Promise<boolean> {
 		if (!user) return false;
 		try {
+			const data: Record<string, unknown> = { user };
+			if (token) data.token = token;
+			if (proxy) data.proxy = proxy;
 			await this.sendPacket(
-				{
-					requestId: this.nextReqId++,
-					type: "userConnect",
-					data: { user },
-				},
+				{ requestId: this.nextReqId++, type: "userConnect", data },
 				8000,
 			);
 			return true;
@@ -367,30 +388,36 @@ export class RelayImWsClient {
 		sender: string;
 		target: string;
 		text: string;
-		channel: "scruff" | "jackd";
+		channel: "grindr" | "scruff" | "jackd";
+		conversationId?: string;
+		token?: string;
 	}): Promise<RelayMessageSendResult> {
 		const messageId = `${params.channel}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-		const conversationId = `${params.sender}:${params.target}`;
+		const conversationId =
+			params.conversationId || `${params.sender}:${params.target}`;
 		const senderTime = new SvelteDate().toISOString();
+
+		const data: Record<string, unknown> = {
+			messageId,
+			conversationId,
+			sender: params.sender,
+			target: params.target,
+			senderTime,
+			messageType: "text",
+			messageContent: params.text,
+			attachment: null,
+			isRead: false,
+			isRecalled: false,
+			isDeleted: false,
+			isMute: false,
+		};
+		if (params.channel === "grindr" && params.token) {
+			data.grindr = { token: params.token };
+		}
 
 		const res = await this.sendPacket<
 			RelayMessageSendResult | { messageId?: string; senderTime?: string }
-		>(
-			{
-				requestId: this.nextReqId++,
-				type: "messageSend",
-				data: {
-					messageId,
-					conversationId,
-					sender: params.sender,
-					target: params.target,
-					senderTime,
-					messageContent: params.text,
-					attachment: null,
-				},
-			},
-			12000,
-		);
+		>({ requestId: this.nextReqId++, type: "messageSend", data }, 12000);
 
 		return {
 			messageId: res?.messageId || messageId,

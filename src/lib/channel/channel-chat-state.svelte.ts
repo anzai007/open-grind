@@ -1,5 +1,5 @@
 /* eslint-disable max-lines */
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
+import { SvelteDate, SvelteMap, SvelteSet } from "svelte/reactivity";
 
 import { channelGridState } from "./channel-grid-state.svelte";
 import { channelState } from "./channel-state.svelte";
@@ -38,10 +38,58 @@ export class ChannelChatState {
 
 	constructor() {
 		this.loadFromStorage();
-		// 监听 Scruff / Jack'd 统一 IM WSS 实时推送（来信与发信即时推流至界面）
+		// 监听统一 IM WSS 实时推送（来信与发信即时推流至界面）
 		relayImWs.onMessage((packet) => {
 			this.handleWsPacket(packet);
 		});
+
+		// 同时兼容监听 Grindr 原生后台推送事件
+		if (typeof window !== "undefined") {
+			import("@tauri-apps/api/event")
+				.then(({ listen }) => {
+					listen<{
+						type: string;
+						payload?: {
+							conversationId: string;
+							messageId: string;
+							senderId: number;
+							timestamp: number;
+							type: string;
+							body: { text?: string };
+						};
+					}>("chat.v1.message_sent", (event) => {
+						const p = event.payload?.payload;
+						if (!p || channelState.activeChannel !== "grindr")
+							return;
+						const myId =
+							channelState.currentAccount?.accountIdentifier ||
+							"";
+						const isFromMe = myId
+							? String(p.senderId) === myId
+							: false;
+						const targetId = isFromMe ? "" : myId;
+						const senderId = String(p.senderId);
+						const content = p.body?.text || `[${p.type}]`;
+						this.handleWsPacket({
+							requestId: 0,
+							type: isFromMe
+								? "messageSendedNotify"
+								: "messageRecvNotify",
+							data: {
+								conversationId: p.conversationId,
+								messageId: p.messageId,
+								sender: senderId,
+								target: targetId,
+								senderTime: new SvelteDate(
+									p.timestamp,
+								).toISOString(),
+								messageContent: content,
+							},
+						});
+					}).catch(() => {});
+				})
+				.catch(() => {});
+		}
 	}
 
 	get activeConversation(): UniversalConversation | null {
@@ -141,8 +189,7 @@ export class ChannelChatState {
 	startPolling(intervalMs = 5000): void {
 		this.stopPolling();
 		this.pollingTimer = setInterval(() => {
-			if (channelState.activeChannel === "grindr") return;
-			// 若 Scruff / Jack'd IM WSS 统一长链已连接，消息由 WebSocket 实时推送，无需冗余的高频 HTTP 轮询
+			// 若 IM WSS 统一长链已连接，消息由 WebSocket 实时推送，无需冗余的高频 HTTP 轮询
 			if (relayImWs.connected) return;
 			void this.loadConversations(true);
 			if (this.activeConversationId) {
@@ -161,11 +208,7 @@ export class ChannelChatState {
 	switchScope(): void {
 		const channel = channelState.activeChannel;
 		const account = channelState.currentAccount;
-		if (channel === "scruff" || channel === "jackd") {
-			relayImWs.connect(channel, account);
-		} else {
-			relayImWs.disconnect();
-		}
+		relayImWs.connect(channel, account);
 
 		const scope = this.getScopeKey();
 		this.conversations = [
@@ -193,7 +236,13 @@ export class ChannelChatState {
 		if (!data || !data.messageId) return;
 
 		const channel = channelState.activeChannel;
-		if (channel !== "scruff" && channel !== "jackd") return;
+		if (
+			channel !== "grindr" &&
+			channel !== "scruff" &&
+			channel !== "jackd"
+		) {
+			return;
+		}
 
 		const metaId = channelState.currentAccount?.extraMeta?.profileId;
 		const myProfileId =
@@ -334,7 +383,6 @@ export class ChannelChatState {
 
 	async loadConversations(silent = false): Promise<void> {
 		const channel = channelState.activeChannel;
-		if (channel === "grindr") return;
 		if (this.isFetchingConversations) return;
 		this.isFetchingConversations = true;
 
@@ -549,8 +597,6 @@ export class ChannelChatState {
 	}
 
 	async loadMessages(conversationId: string, silent = false): Promise<void> {
-		const channel = channelState.activeChannel;
-		if (channel === "grindr") return;
 		if (this.isFetchingMessages) return;
 		this.isFetchingMessages = true;
 
@@ -696,7 +742,7 @@ export class ChannelChatState {
 	}
 
 	async hydrateConversationUser(userId: string): Promise<void> {
-		if (channelState.activeChannel === "grindr" || !userId) return;
+		if (!userId) return;
 		if (this.hydratingUserIds.has(userId)) return;
 		this.hydratingUserIds.add(userId);
 

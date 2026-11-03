@@ -21,7 +21,9 @@
 	const currentMeta = $derived(channelState.currentMeta);
 	const activeConv = $derived(channelChatState.activeConversation);
 	const hasAccount = $derived(
-		(channelState.accounts[channelState.activeChannel]?.length ?? 0) > 0,
+		channelState.activeChannel === "grindr" ||
+			(channelState.accounts[channelState.activeChannel]?.length ?? 0) >
+				0,
 	);
 	const sortedConversations = $derived(
 		[...channelChatState.conversations].sort(
