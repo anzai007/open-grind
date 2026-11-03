@@ -108,7 +108,7 @@ export class ChannelGridState {
 			this.items = res.items;
 			this.gridMemoryCache.set(cacheKey, res.items);
 			this.offset = res.nextOffset ?? (res.items.length > 0 ? 100 : 0);
-			this.hasNext = res.hasNext;
+			this.hasNext = Boolean(res.hasNext && (res.nextOffset ?? 0) < 2000);
 			this.error = null;
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : String(e);
@@ -126,6 +126,12 @@ export class ChannelGridState {
 			this.currentLat === null ||
 			this.currentLon === null
 		) {
+			return;
+		}
+
+		// 单个定位点最多翻到第 20 页 (offset 达到 2000 则停止)
+		if (this.offset >= 2000) {
+			this.hasNext = false;
 			return;
 		}
 
@@ -149,10 +155,14 @@ export class ChannelGridState {
 			if (this.currentCacheKey) {
 				this.gridMemoryCache.set(this.currentCacheKey, this.items);
 			}
-			this.offset =
+
+			const nextOffset =
 				res.nextOffset ??
 				(res.items.length > 0 ? this.offset + 100 : this.offset);
-			this.hasNext = res.hasNext && res.items.length > 0;
+			this.offset = nextOffset;
+			this.hasNext = Boolean(
+				res.hasNext && res.items.length > 0 && nextOffset < 2000,
+			);
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -180,7 +190,7 @@ export class ChannelGridState {
 				this.gridMemoryCache.set(this.currentCacheKey, res.items);
 			}
 			this.offset = res.nextOffset ?? (res.items.length > 0 ? 100 : 0);
-			this.hasNext = res.hasNext;
+			this.hasNext = Boolean(res.hasNext && (res.nextOffset ?? 0) < 2000);
 			this.error = null;
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : String(e);

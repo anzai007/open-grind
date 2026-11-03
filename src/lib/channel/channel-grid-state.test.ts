@@ -169,4 +169,50 @@ describe("ChannelGridState", () => {
 		expect(gridState.error).toBe("Relay timeout");
 		expect(gridState.loading).toBe(false);
 	});
+
+	it("stops paging when reaching the 20-page max offset (offset >= 2000)", async () => {
+		const mockProvider: SocialChannelProvider = {
+			channel: "scruff",
+			meta: channelState.currentMeta,
+			getNearbyUsers: (params) => {
+				const offset = params.offset ?? 0;
+				return Promise.resolve({
+					items: [
+						{
+							channel: "scruff",
+							id: `u_${offset}`,
+							displayName: `User ${offset}`,
+							avatarThumbnailUrl: `https://example.com/${offset}.jpg`,
+							isOnline: true,
+						},
+					],
+					offset,
+					nextOffset: offset + 100,
+					hasNext: offset < 1900,
+				});
+			},
+			getUserDetail: () => Promise.reject(new Error("unimplemented")),
+			getConversations: () =>
+				Promise.resolve({ items: [], offset: 0, hasNext: false }),
+			getMessages: () => Promise.resolve([]),
+			sendMessage: () => Promise.reject(new Error("unimplemented")),
+			sendInteraction: () =>
+				Promise.resolve({
+					success: true,
+					interactionType: "woof",
+					targetUserId: "u1",
+				}),
+		};
+
+		channelState.registerProvider("scruff", mockProvider);
+		channelState.switchChannel("scruff");
+
+		await gridState.load(31.23, 121.47);
+		gridState.offset = 1900;
+		gridState.hasNext = true;
+
+		await gridState.loadMore();
+		expect(gridState.offset).toBe(2000);
+		expect(gridState.hasNext).toBe(false);
+	});
 });

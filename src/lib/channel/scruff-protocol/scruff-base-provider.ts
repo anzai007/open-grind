@@ -43,7 +43,7 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 			device_type: 1,
 			fullsize_constraint: "-fullsize-400K",
 			latitude: params.lat,
-			limit: 60,
+			limit: 1000,
 			longitude: params.lon,
 			offset,
 			query_sort_type: 3,
@@ -126,14 +126,16 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 			});
 		}
 
-		// Offset advances by 100 per query in Scruff relay protocol
-		const nextOffset = rawList.length > 0 ? offset + 100 : undefined;
+		// Scruff 协议族分页规范：offset 步长推进 100；单个定位点附近最多获取 2000 人，最多请求至第 20 页 (offset 0..1900)
+		const MAX_OFFSET = 1900;
+		const canHaveMore = rawList.length > 0 && offset < MAX_OFFSET;
+		const nextOffset = canHaveMore ? offset + 100 : undefined;
 
 		return {
 			items,
 			offset,
 			nextOffset,
-			hasNext: rawList.length > 0,
+			hasNext: canHaveMore,
 			total: items.length,
 		};
 	}

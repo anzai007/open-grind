@@ -202,6 +202,13 @@
 					</div>
 				{/if}
 			</div>
+		{:else if channelGridState.items.length > 0}
+			<div class="py-8 text-center text-xs text-muted-foreground/60">
+				<span
+					>已加载附近全部 {channelGridState.items.length} 位用户 (最多至第
+					20 页)</span
+				>
+			</div>
 		{/if}
 	{/if}
 </div>
