@@ -327,7 +327,7 @@ export class TemplateState {
 			const account = channelState.currentAccount;
 			const text = pick.text;
 
-			await provider.sendMessage({
+			const sentMessage = await provider.sendMessage({
 				account,
 				conversationId: userIdStr,
 				targetUserId: userIdStr,
@@ -335,12 +335,14 @@ export class TemplateState {
 			});
 
 			if (channel !== "grindr") {
-				channelChatState.openChatWithUser({
-					id: userIdStr,
-					displayName: user.displayName,
-					avatarThumbnailUrl: user.avatarThumbnailUrl,
-				});
-				channelChatState.markConversationAsRead(userIdStr);
+				channelChatState.recordSentMessage(
+					{
+						id: userIdStr,
+						displayName: user.displayName,
+						avatarThumbnailUrl: user.avatarThumbnailUrl,
+					},
+					sentMessage,
+				);
 			}
 
 			toast.success(

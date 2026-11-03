@@ -226,4 +226,41 @@ describe("ChannelChatState", () => {
 			"https://example.com/kenji.jpg",
 		);
 	});
+
+	it("records sent quick DM message and updates lastMessageText without losing message", () => {
+		const targetUser = {
+			id: "20229988",
+			displayName: "TokyoGuy",
+			avatarThumbnailUrl: "https://example.com/tokyo.jpg",
+		};
+		const sentMessage = {
+			channel: "scruff" as const,
+			conversationId: "20229988",
+			id: "msg_sent_1",
+			isFromMe: true,
+			recipientId: "20229988",
+			senderId: "me",
+			status: "sent" as const,
+			text: "Hi TokyoGuy, nice profile!",
+			timestamp: 1700000000000,
+		};
+
+		channelChatState.recordSentMessage(targetUser, sentMessage);
+
+		expect(channelChatState.conversations).toHaveLength(1);
+		const conv = channelChatState.conversations[0]!;
+		expect(conv.targetUserId).toBe("20229988");
+		expect(conv.targetUserName).toBe("TokyoGuy");
+		expect(conv.targetAvatarUrl).toBe("https://example.com/tokyo.jpg");
+		expect(conv.lastMessageText).toBe("Hi TokyoGuy, nice profile!");
+		expect(conv.lastMessageTimestamp).toBe(1700000000000);
+
+		// 打开该会话，验证消息流中包含了这条已发送信息
+		channelChatState.openChatWithUser(targetUser);
+		expect(channelChatState.messages).toHaveLength(1);
+		expect(channelChatState.messages[0]!.text).toBe(
+			"Hi TokyoGuy, nice profile!",
+		);
+		expect(channelChatState.messages[0]!.isFromMe).toBe(true);
+	});
 });

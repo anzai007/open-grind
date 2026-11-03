@@ -204,22 +204,29 @@ export class ChannelChatState {
 						? 0
 						: s.unreadCount;
 
-				if (
-					local &&
-					(local.lastMessageTimestamp ?? 0) >
-						(s.lastMessageTimestamp ?? 0)
-				) {
-					return {
-						...s,
-						targetUserName,
-						targetAvatarUrl,
-						lastMessageText:
-							local.lastMessageText || s.lastMessageText,
-						lastMessageTimestamp: local.lastMessageTimestamp,
-						unreadCount,
-					};
-				}
-				return { ...s, targetUserName, targetAvatarUrl, unreadCount };
+				const hasNewerLocal =
+					Boolean(local) &&
+					(local!.lastMessageTimestamp ?? 0) >
+						(s.lastMessageTimestamp ?? 0);
+
+				const lastMessageText = hasNewerLocal
+					? local?.lastMessageText || s.lastMessageText || ""
+					: s.lastMessageText || local?.lastMessageText || "";
+
+				const lastMessageTimestamp = hasNewerLocal
+					? local!.lastMessageTimestamp
+					: s.lastMessageTimestamp ||
+						local?.lastMessageTimestamp ||
+						0;
+
+				return {
+					...s,
+					targetUserName,
+					targetAvatarUrl,
+					lastMessageText,
+					lastMessageTimestamp,
+					unreadCount,
+				};
 			});
 
 			// 保留本地创建但尚未入库服务端的草稿/新打开会话（避免点击“发私信”后 1 秒被服务器空列表冲掉）
@@ -363,6 +370,25 @@ export class ChannelChatState {
 			this.messages = mergedList;
 			this.messagesStore.set(msgScope, mergedList);
 			this.saveToStorage();
+
+			const lastMsg = mergedList[mergedList.length - 1];
+			if (lastMsg?.text) {
+				const conv = this.conversations.find(
+					(c) =>
+						c.conversationId === conversationId ||
+						c.targetUserId === conversationId,
+				);
+				if (
+					conv &&
+					(!conv.lastMessageText ||
+						conv.lastMessageTimestamp <= lastMsg.timestamp)
+				) {
+					this.updateConversationLastMessage(
+						conv.conversationId,
+						lastMsg.text,
+					);
+				}
+			}
 		} catch (e) {
 			if (!silent) {
 				this.error = e instanceof Error ? e.message : String(e);
@@ -494,55 +520,103 @@ export class ChannelChatState {
 		}
 	}
 
+	private upsertConversationItem(params: {
+		id: string;
+		displayName?: string;
+		avatarThumbnailUrl?: string;
+		conversationId?: string;
+		lastMessageText?: string;
+		lastMessageTimestamp?: number;
+	}): UniversalConversation {
+		const channel = channelState.activeChannel;
+		const userIdStr = String(params.id);
+		const convId = params.conversationId || userIdStr;
+		const scope = this.getScopeKey();
+
+		let conv = this.conversations.find(
+			(c) =>
+				c.conversationId === convId ||
+				c.conversationId === userIdStr ||
+				(Boolean(c.targetUserId) && c.targetUserId === userIdStr),
+		);
+
+		const now = params.lastMessageTimestamp ?? Date.now();
+		if (!conv) {
+			conv = {
+				channel,
+				conversationId: convId,
+				lastMessageText: params.lastMessageText ?? "",
+				lastMessageTimestamp: now,
+				targetAvatarUrl: params.avatarThumbnailUrl,
+				targetUserId: userIdStr,
+				targetUserName: params.displayName || `User ${userIdStr}`,
+				unreadCount: 0,
+			};
+			this.conversations = [conv, ...this.conversations];
+		} else {
+			conv = {
+				...conv,
+				conversationId: convId,
+				lastMessageText: params.lastMessageText ?? conv.lastMessageText,
+				lastMessageTimestamp:
+					params.lastMessageTimestamp ?? conv.lastMessageTimestamp,
+				targetUserName:
+					params.displayName &&
+					(!conv.targetUserName ||
+						conv.targetUserName.startsWith("User "))
+						? params.displayName
+						: conv.targetUserName,
+				targetAvatarUrl:
+					params.avatarThumbnailUrl || conv.targetAvatarUrl,
+				unreadCount: 0,
+			};
+			const rest = this.conversations.filter(
+				(c) =>
+					c.conversationId !== conv!.conversationId &&
+					(!conv!.targetUserId ||
+						c.targetUserId !== conv!.targetUserId),
+			);
+			this.conversations = [conv, ...rest];
+		}
+
+		this.conversationsStore.set(scope, this.conversations);
+		this.saveToStorage();
+		return conv;
+	}
+
+	recordSentMessage(
+		user: { id: string; displayName?: string; avatarThumbnailUrl?: string },
+		message: UniversalMessage,
+	): void {
+		const userIdStr = String(user.id);
+		const convId = message.conversationId || userIdStr;
+		const conv = this.upsertConversationItem({
+			id: userIdStr,
+			displayName: user.displayName,
+			avatarThumbnailUrl: user.avatarThumbnailUrl,
+			conversationId: convId,
+			lastMessageText: message.text,
+			lastMessageTimestamp: message.timestamp || Date.now(),
+		});
+
+		const msgScope = this.getMessageScopeKey(conv.conversationId);
+		const localMsgs = this.messagesStore.get(msgScope) ?? [];
+		if (!localMsgs.some((m) => m.id === message.id)) {
+			const updatedMsgs = [...localMsgs, message];
+			this.messagesStore.set(msgScope, updatedMsgs);
+			if (this.activeConversationId === conv.conversationId) {
+				this.messages = updatedMsgs;
+			}
+			this.saveToStorage();
+		}
+	}
+
 	openChatWithUser(user: {
 		id: string;
 		displayName?: string;
 		avatarThumbnailUrl?: string;
 	}): void {
-		const channel = channelState.activeChannel;
-		const userIdStr = String(user.id);
-		const scope = this.getScopeKey();
-
-		// 查找是否已有该联系人会话
-		let conv = this.conversations.find(
-			(c) =>
-				c.targetUserId === userIdStr || c.conversationId === userIdStr,
-		);
-
-		if (!conv) {
-			conv = {
-				channel,
-				conversationId: userIdStr,
-				lastMessageText: "",
-				lastMessageTimestamp: Date.now(),
-				targetAvatarUrl: user.avatarThumbnailUrl,
-				targetUserId: userIdStr,
-				targetUserName: user.displayName || `User ${userIdStr}`,
-				unreadCount: 0,
-			};
-			this.conversations = [conv, ...this.conversations];
-			this.conversationsStore.set(scope, this.conversations);
-			this.saveToStorage();
-		} else {
-			let updated = false;
-			if (
-				user.displayName &&
-				(!conv.targetUserName ||
-					conv.targetUserName.startsWith("User "))
-			) {
-				conv.targetUserName = user.displayName;
-				updated = true;
-			}
-			if (user.avatarThumbnailUrl && !conv.targetAvatarUrl) {
-				conv.targetAvatarUrl = user.avatarThumbnailUrl;
-				updated = true;
-			}
-			if (updated) {
-				this.conversationsStore.set(scope, this.conversations);
-				this.saveToStorage();
-			}
-		}
-
+		const conv = this.upsertConversationItem(user);
 		this.activeConversationId = conv.conversationId;
 		this.markConversationAsRead(conv.conversationId);
 		const msgScope = this.getMessageScopeKey(conv.conversationId);
@@ -552,7 +626,9 @@ export class ChannelChatState {
 
 	private updateConversationLastMessage(convId: string, text: string) {
 		const idx = this.conversations.findIndex(
-			(c) => c.conversationId === convId,
+			(c) =>
+				c.conversationId === convId ||
+				(Boolean(c.targetUserId) && c.targetUserId === convId),
 		);
 		const conv = this.conversations[idx];
 		if (conv) {
