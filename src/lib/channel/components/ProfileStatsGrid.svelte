@@ -14,6 +14,21 @@
 		if (s.includes("facebook")) return FacebookLogoIcon;
 		return null;
 	}
+
+	function formatHeight(val: number | string | undefined | null): string {
+		if (val === undefined || val === null) return "";
+		const num = typeof val === "string" ? parseFloat(val) : val;
+		if (Number.isNaN(num)) return "";
+		const inCm = num < 3 ? num * 100 : num;
+		return inCm.toFixed(1);
+	}
+
+	function formatWeight(val: number | string | undefined | null): string {
+		if (val === undefined || val === null) return "";
+		const num = typeof val === "string" ? parseFloat(val) : val;
+		if (Number.isNaN(num)) return "";
+		return num.toFixed(1);
+	}
 </script>
 
 <div class="flex flex-col gap-4">
@@ -24,7 +39,7 @@
 			>
 				<span class="text-[10px] text-muted-foreground">身高</span>
 				<span class="mt-0.5 text-xs font-semibold"
-					>{user.heightCm} cm</span
+					>{formatHeight(user.heightCm)} cm</span
 				>
 			</div>
 		{/if}
@@ -34,7 +49,7 @@
 			>
 				<span class="text-[10px] text-muted-foreground">体重</span>
 				<span class="mt-0.5 text-xs font-semibold"
-					>{user.weightKg} kg</span
+					>{formatWeight(user.weightKg)} kg</span
 				>
 			</div>
 		{/if}

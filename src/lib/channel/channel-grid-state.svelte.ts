@@ -1,4 +1,4 @@
-import { SvelteSet } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 import { channelState } from "./channel-state.svelte";
 import type { UniversalGridUser } from "./types";
@@ -15,6 +15,21 @@ export class ChannelGridState {
 	private currentLat: number | null = null;
 	private currentLon: number | null = null;
 	private currentFilterTags: string[] | undefined = undefined;
+	private currentCacheKey: string | null = null;
+	private gridMemoryCache = new SvelteMap<string, UniversalGridUser[]>();
+
+	private computeCacheKey(
+		lat: number,
+		lon: number,
+		filterTags?: string[],
+		geohash?: string,
+	): string {
+		const channel = channelState.activeChannel;
+		const accountId = channelState.currentAccount?.id ?? "";
+		const locKey = geohash ?? `${lat.toFixed(4)},${lon.toFixed(4)}`;
+		const tagsKey = (filterTags ?? []).join(",");
+		return `${channel}:${accountId}:${locKey}:${tagsKey}`;
+	}
 
 	clear() {
 		this.items = [];
@@ -24,20 +39,59 @@ export class ChannelGridState {
 		this.loading = false;
 		this.refreshing = false;
 		this.isLoadingMore = false;
+		this.currentCacheKey = null;
 	}
 
-	async load(lat: number, lon: number, filterTags?: string[]): Promise<void> {
+	private clearItemsOnly() {
+		this.items = [];
+		this.offset = 0;
+		this.hasNext = true;
+		this.error = null;
+	}
+
+	async load(
+		lat: number,
+		lon: number,
+		filterTags?: string[],
+		geohash?: string,
+		force = false,
+	): Promise<void> {
+		const cacheKey = this.computeCacheKey(lat, lon, filterTags, geohash);
+
+		// 1. 如果当前展示的正是该渠道/账号/定位点的数据，且不是强制刷新，立即跳过重载（保持视图与滚动状态）
 		if (
-			this.loading &&
-			this.currentLat === lat &&
-			this.currentLon === lon
+			!force &&
+			this.currentCacheKey === cacheKey &&
+			this.items.length > 0
 		) {
 			return;
 		}
+
+		// 2. 如果之前访问过并缓存了该位置数据，直接秒开恢复，避免空白闪烁
+		if (!force && this.gridMemoryCache.has(cacheKey)) {
+			this.currentLat = lat;
+			this.currentLon = lon;
+			this.currentFilterTags = filterTags;
+			this.currentCacheKey = cacheKey;
+			this.items = this.gridMemoryCache.get(cacheKey)!;
+			this.loading = false;
+			return;
+		}
+
+		if (
+			this.loading &&
+			this.currentLat === lat &&
+			this.currentLon === lon &&
+			this.currentCacheKey === cacheKey
+		) {
+			return;
+		}
+
 		this.currentLat = lat;
 		this.currentLon = lon;
 		this.currentFilterTags = filterTags;
-		this.clear();
+		this.currentCacheKey = cacheKey;
+		this.clearItemsOnly();
 		this.loading = true;
 
 		try {
@@ -52,6 +106,7 @@ export class ChannelGridState {
 			});
 
 			this.items = res.items;
+			this.gridMemoryCache.set(cacheKey, res.items);
 			this.offset = res.nextOffset ?? (res.items.length > 0 ? 100 : 0);
 			this.hasNext = res.hasNext;
 			this.error = null;
@@ -91,6 +146,9 @@ export class ChannelGridState {
 			const newItems = res.items.filter((u) => !existingIds.has(u.id));
 
 			this.items = [...this.items, ...newItems];
+			if (this.currentCacheKey) {
+				this.gridMemoryCache.set(this.currentCacheKey, this.items);
+			}
 			this.offset =
 				res.nextOffset ??
 				(res.items.length > 0 ? this.offset + 100 : this.offset);
@@ -118,6 +176,9 @@ export class ChannelGridState {
 			});
 
 			this.items = res.items;
+			if (this.currentCacheKey) {
+				this.gridMemoryCache.set(this.currentCacheKey, res.items);
+			}
 			this.offset = res.nextOffset ?? (res.items.length > 0 ? 100 : 0);
 			this.hasNext = res.hasNext;
 			this.error = null;

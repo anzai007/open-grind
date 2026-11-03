@@ -20,6 +20,10 @@ import {
 import { parseRawScruffProfile, type RawScruffProfile } from "./profile-parser";
 import { queryPlatformAccount, resolveEffectiveProxy } from "./proxy-helper";
 import { RelayClient } from "./relay-client";
+import {
+	syncScruffAccountProfile,
+	verifyScruffAccount,
+} from "./scruff-account-verifier";
 import { buildScruffPhotoUrl } from "./scruff-options";
 
 export abstract class ScruffProtocolBaseProvider implements SocialChannelProvider {
@@ -134,10 +138,23 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 		};
 	}
 
+	// 前端轻量详情缓存（15分钟有效），避免短时间内重复点击同一用户发起重复网络请求
+	private profileDetailCache = new Map<
+		string,
+		{ profile: UniversalUserProfile; expiresAt: number }
+	>();
+
 	async getUserDetail(
 		userId: string,
 		account?: ChannelAccount,
 	): Promise<UniversalUserProfile> {
+		// 1. 检查前端轻量缓存，存在且未过期则 0ms 瞬间返回
+		const cached = this.profileDetailCache.get(userId);
+		if (cached && Date.now() < cached.expiresAt) {
+			return cached.profile;
+		}
+
+		// 2. 直接单次请求 omni-relay 中继用户详情，快速且唯一调用
 		const res = await this.client.request<{
 			data?: RawScruffProfile[];
 			results?: RawScruffProfile[];
@@ -151,6 +168,7 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 				target: userId,
 				thumbnail_constraint: "-thumbnail-300",
 			},
+			timeoutMs: 8000,
 		});
 
 		const list = res.results || res.data || [];
@@ -159,7 +177,12 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 			throw new Error(`${this.meta.name} profile not found: ${userId}`);
 		}
 
-		return parseRawScruffProfile(p, this.channel);
+		const parsed = parseRawScruffProfile(p, this.channel);
+		this.profileDetailCache.set(userId, {
+			expiresAt: Date.now() + 15 * 60 * 1000,
+			profile: parsed,
+		});
+		return parsed;
 	}
 
 	async getConversations(
@@ -197,17 +220,7 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 
 		const res = await this.client.request<{
 			ret?: boolean;
-			data?: Array<{
-				conversation_id?: string;
-				target?: string | number;
-				target_user_id?: string | number;
-				target_name?: string;
-				target_avatar_url?: string;
-				avatar_thumbnail_key?: string;
-				last_message?: string;
-				last_message_at?: number | string;
-				unread_count?: number;
-			}>;
+			data?: Array<Record<string, unknown>>;
 		}>({
 			account,
 			method: "GET",
@@ -218,26 +231,72 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 
 		const list = res.data || [];
 		const items: UniversalConversation[] = list.map((c) => {
-			const targetId = String(c.target_user_id || c.target || "");
+			const rawTarget =
+				c.target_user_id ?? c.targetUserId ?? c.target ?? "";
+			const targetId =
+				typeof rawTarget === "string" || typeof rawTarget === "number"
+					? String(rawTarget)
+					: "";
+			const thumbKey =
+				(c.avatar_thumbnail_key as string) ||
+				(c.avatarThumbnailKey as string) ||
+				"";
 			const avatarUrl =
-				c.target_avatar_url ||
-				(c.avatar_thumbnail_key
-					? buildScruffPhotoUrl(c.avatar_thumbnail_key)
-					: undefined);
+				(c.target_avatar_url as string) ||
+				(c.targetAvatarUrl as string) ||
+				(thumbKey ? buildScruffPhotoUrl(thumbKey) : undefined);
+
+			const lastMsgObj =
+				typeof c.lastMessage === "object" && c.lastMessage !== null
+					? (c.lastMessage as Record<string, unknown>)
+					: typeof c.last_message === "object" &&
+						  c.last_message !== null
+						? (c.last_message as Record<string, unknown>)
+						: null;
+
+			const lastMessageText =
+				typeof c.last_message === "string"
+					? c.last_message
+					: typeof c.lastMessage === "string"
+						? c.lastMessage
+						: (lastMsgObj?.message as string) || "";
+
+			const rawTime =
+				c.last_message_at ??
+				c.lastMessageAt ??
+				lastMsgObj?.senderTime ??
+				lastMsgObj?.created_at;
+
+			const lastMessageTimestamp = rawTime
+				? typeof rawTime === "number"
+					? rawTime > 1e11
+						? rawTime
+						: rawTime * 1000
+					: typeof rawTime === "string"
+						? new Date(rawTime).getTime()
+						: 0
+				: 0;
+
+			const unread = Number(c.unread_count ?? c.unreadCount ?? 0);
+			const rawConvId = c.conversation_id ?? c.conversationId ?? targetId;
+			const conversationId =
+				typeof rawConvId === "string" || typeof rawConvId === "number"
+					? String(rawConvId)
+					: targetId;
+
 			return {
 				channel: this.channel,
-				conversationId: c.conversation_id || targetId,
-				lastMessageText: c.last_message || "",
-				lastMessageTimestamp: c.last_message_at
-					? typeof c.last_message_at === "number"
-						? c.last_message_at
-						: new Date(c.last_message_at).getTime()
-					: 0,
+				conversationId,
+				lastMessageText,
+				lastMessageTimestamp,
 				rawPayload: c,
 				targetAvatarUrl: avatarUrl,
 				targetUserId: targetId,
-				targetUserName: c.target_name || `User ${targetId}`,
-				unreadCount: c.unread_count ?? 0,
+				targetUserName:
+					(c.target_name as string) ||
+					(c.targetName as string) ||
+					`User ${targetId}`,
+				unreadCount: Number.isNaN(unread) ? 0 : unread,
 			};
 		});
 
@@ -247,6 +306,82 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 			offset: params?.offset ?? 0,
 			total: items.length,
 		};
+	}
+
+	async syncAccountProfile(account: ChannelAccount): Promise<ChannelAccount> {
+		return syncScruffAccountProfile(this.client, this.channel, account);
+	}
+
+	async getViewers(account?: ChannelAccount): Promise<UniversalGridUser[]> {
+		try {
+			const res = await this.client.request<{
+				results?: RawScruffProfile[];
+			}>({
+				account,
+				method: "GET",
+				path: "/app/viewers/incoming",
+				query: {
+					api_version: 2,
+					fullsize_constraint: "-fullsize-400K",
+					latitude: 0,
+					limit: 40,
+					longitude: 0,
+					offset: 0,
+					query_sort_type: 1,
+					thumbnail_constraint: "-thumbnail-300",
+				},
+				timeoutMs: 6000,
+			});
+
+			const list = res.results || [];
+			return list.map((p) => {
+				const thumbKey =
+					p.avatar_thumbnail_key ||
+					p.profile_photos?.[0]?.thumbnail_key;
+				const fullKey =
+					p.avatar_fullsize_key ||
+					p.profile_photos?.[0]?.fullsize_key ||
+					thumbKey;
+				return {
+					age: p.age,
+					avatarFullUrl: buildScruffPhotoUrl(fullKey, "fullsize"),
+					avatarThumbnailUrl: buildScruffPhotoUrl(
+						thumbKey,
+						"thumbnail",
+					),
+					channel: this.channel,
+					displayName: p.name || `User ${p.id}`,
+					distanceMeters: null,
+					headline: p.about || undefined,
+					id: String(p.id),
+					isOnline: Boolean(p.logged_in),
+					rawPayload: p,
+					tags: p.hashtags ?? [],
+				};
+			});
+		} catch (err) {
+			console.warn("getViewers fallback to empty:", err);
+			return [];
+		}
+	}
+
+	async getInteractions(
+		account?: ChannelAccount,
+	): Promise<UniversalConversation[]> {
+		try {
+			const res = await this.getConversations({ account });
+			const keyword = this.channel === "jackd" ? "wave" : "woof";
+			const interactions = res.items.filter(
+				(c) =>
+					c.lastMessageText.toLowerCase().includes(keyword) ||
+					c.unreadCount > 0,
+			);
+			return interactions.length > 0
+				? interactions
+				: res.items.slice(0, 20);
+		} catch {
+			return [];
+		}
 	}
 
 	async getMessages(
@@ -420,158 +555,6 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 	): Promise<UniversalInteractionResult>;
 
 	async verifyAccount(account: ChannelAccount): Promise<VerifyAccountResult> {
-		// 全局保护：单次验证总耗时硬限制，彻底杜绝 UI 悬挂
-		const timeoutPromise = new Promise<VerifyAccountResult>((resolve) => {
-			setTimeout(() => {
-				resolve({
-					displayName: account.name || account.accountIdentifier,
-					proxyUrl: account.proxyUrl,
-					valid: true,
-				});
-			}, 6000);
-		});
-
-		const verifyPromise = (async (): Promise<VerifyAccountResult> => {
-			try {
-				let profileId = account.extraMeta?.profileId as
-					| string
-					| undefined;
-				const platform = this.channel === "jackd" ? "jackd" : "scruff";
-
-				// 1. 优先尝试从平台账号管理中心同步账号元信息（平台用户ID、专属代理）
-				const platInfo = await queryPlatformAccount(
-					platform,
-					account.accountIdentifier,
-					3500,
-				);
-
-				const effectiveProxy = resolveEffectiveProxy(
-					account.proxyUrl,
-					platInfo?.proxyUrl,
-				);
-
-				if (!profileId && platInfo?.platformUserId) {
-					profileId = String(platInfo.platformUserId);
-				}
-
-				const verifiedAccount: ChannelAccount = {
-					...account,
-					proxyUrl: effectiveProxy,
-				};
-
-				// 若平台数据库已有该账号并且已激活（有 AccessToken 或 platformUserId）
-				// 说明设备和 Token 在平台都是现成的，瞬时确认为有效！
-				const isPlatformKnown = Boolean(
-					platInfo &&
-					(platInfo.hasAccessToken || platInfo.platformUserId),
-				);
-
-				// 2. 若已知 profileId，快速拉取一次个人资料（超短超时 3000ms）
-				if (profileId) {
-					try {
-						const profileRes = await this.client.request<{
-							results?: RawScruffProfile[];
-						}>({
-							account: verifiedAccount,
-							method: "GET",
-							path: "/app/profile",
-							query: { api_version: 2, target: profileId },
-							timeoutMs: 3000,
-						});
-
-						const p = profileRes.results?.[0];
-						if (p) {
-							const thumbKey =
-								p.avatar_thumbnail_key ||
-								p.profile_photos?.[0]?.thumbnail_key;
-							const avatarUrl = buildScruffPhotoUrl(
-								thumbKey,
-								"thumbnail",
-							);
-							return {
-								avatarUrl,
-								displayName:
-									p.name || account.accountIdentifier,
-								profileId: String(p.id),
-								proxyUrl: effectiveProxy,
-								rawPayload: p,
-								valid: true,
-							};
-						}
-					} catch {
-						// 若为平台已录入账号，即便上游网络临时波动，也不阻断添加
-						if (isPlatformKnown) {
-							return {
-								displayName:
-									account.name || account.accountIdentifier,
-								profileId,
-								proxyUrl: effectiveProxy,
-								valid: true,
-							};
-						}
-					}
-				}
-
-				// 3. 通用探测：通过附近检索确认会话有效性并探知自身账号信息（超时 4000ms）
-				try {
-					const locationRes = await this.client.request<{
-						results?: RawScruffProfile[];
-					}>({
-						account: verifiedAccount,
-						method: "GET",
-						path: "/app/location",
-						query: {
-							latitude: 0,
-							limit: 5,
-							longitude: 0,
-							offset: 0,
-						},
-						timeoutMs: 4000,
-					});
-
-					const first = locationRes.results?.[0];
-					if (first) {
-						const thumbKey =
-							first.avatar_thumbnail_key ||
-							first.profile_photos?.[0]?.thumbnail_key;
-						const avatarUrl = buildScruffPhotoUrl(
-							thumbKey,
-							"thumbnail",
-						);
-						return {
-							avatarUrl,
-							displayName:
-								first.name || account.accountIdentifier,
-							profileId: String(first.id),
-							proxyUrl: effectiveProxy,
-							rawPayload: first,
-							valid: true,
-						};
-					}
-				} catch (err) {
-					if (isPlatformKnown) {
-						return {
-							displayName:
-								account.name || account.accountIdentifier,
-							profileId,
-							proxyUrl: effectiveProxy,
-							valid: true,
-						};
-					}
-					throw err;
-				}
-
-				return {
-					displayName: account.name || account.accountIdentifier,
-					proxyUrl: effectiveProxy,
-					valid: true,
-				};
-			} catch (err) {
-				const errMsg = err instanceof Error ? err.message : String(err);
-				return { errorMessage: errMsg, valid: false };
-			}
-		})();
-
-		return Promise.race([verifyPromise, timeoutPromise]);
+		return verifyScruffAccount(this.client, this.channel, account);
 	}
 }

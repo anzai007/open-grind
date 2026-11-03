@@ -1,8 +1,16 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import SmileySadIcon from "phosphor-svelte/lib/SmileySadIcon";
 
+	import { channelState } from "$lib/channel/channel-state.svelte";
 	import * as Alert from "$lib/components/ui/alert";
 	import Link from "$lib/components/ui/link/Link.svelte";
+
+	$effect(() => {
+		if (channelState.activeChannel !== "grindr") {
+			void goto("/", { replaceState: true });
+		}
+	});
 </script>
 
 <main class="flex flex-1 px-8">

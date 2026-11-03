@@ -19,20 +19,12 @@
 	);
 	const currentMeta = $derived(channelState.currentMeta);
 
-	let lastLoadedGeohash: string | null = null;
-	let lastLoadedChannel: string | null = null;
-
 	$effect(() => {
 		if (!hasAccount) return;
-		const channel = channelState.activeChannel;
-		if (lastLoadedGeohash === geohash && lastLoadedChannel === channel)
-			return;
-		lastLoadedGeohash = geohash;
-		lastLoadedChannel = channel;
 		channelState.recordCurrentLocation(geohash);
 		try {
 			const { lat, lon } = decodeGeohash(geohash);
-			void channelGridState.load(lat, lon);
+			void channelGridState.load(lat, lon, undefined, geohash);
 		} catch (e) {
 			console.error("Failed to decode geohash:", e);
 		}
@@ -45,7 +37,7 @@
 	function handleRetry() {
 		try {
 			const { lat, lon } = decodeGeohash(geohash);
-			void channelGridState.load(lat, lon);
+			void channelGridState.load(lat, lon, undefined, geohash, true);
 		} catch (e) {
 			console.error("Retry failed:", e);
 		}

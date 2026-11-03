@@ -52,6 +52,9 @@ export class ChannelState {
 		this.registerProvider("scruff", new ScruffProvider());
 		this.registerProvider("jackd", new JackdProvider());
 		this.loadFromStorage();
+		if (this.activeChannel !== "grindr") {
+			void this.checkAndSyncActiveAccount(this.activeChannel);
+		}
 	}
 
 	currentProvider = $derived.by<SocialChannelProvider>(() => {
@@ -114,6 +117,48 @@ export class ChannelState {
 				acc.lastLocationName = getGeohashLocationLabel(currentGeohash);
 				this.saveToStorage();
 			}
+			void this.checkAndSyncActiveAccount(channel);
+		}
+	}
+
+	async checkAndSyncActiveAccount(
+		channel: SocialChannelType = this.activeChannel,
+	) {
+		if (channel === "grindr") return;
+		const accountId = this.activeAccountIds[channel];
+		if (!accountId) return;
+		const account = this.accounts[channel].find((a) => a.id === accountId);
+		if (!account) return;
+
+		const lastSynced =
+			typeof account.extraMeta?.syncedAt === "number"
+				? account.extraMeta.syncedAt
+				: 0;
+		const needsSync =
+			!account.avatarUrl ||
+			!account.name ||
+			account.name === account.accountIdentifier ||
+			!account.extraMeta?.profileId ||
+			Date.now() - lastSynced > 3600000;
+
+		if (!needsSync) return;
+
+		const provider = this.getProvider(channel);
+		if (!provider?.syncAccountProfile) return;
+
+		try {
+			const updated = await provider.syncAccountProfile(account);
+			const list = this.accounts[channel];
+			const idx = list.findIndex((a) => a.id === updated.id);
+			if (idx >= 0) {
+				list[idx] = updated;
+				this.saveToStorage();
+			}
+		} catch (err) {
+			console.warn(
+				`[ChannelState] Failed to sync account profile for ${channel}:`,
+				err,
+			);
 		}
 	}
 
@@ -159,6 +204,10 @@ export class ChannelState {
 		}
 
 		this.saveToStorage();
+
+		if (account.channel !== "grindr") {
+			void this.checkAndSyncActiveAccount(account.channel);
+		}
 	}
 
 	removeAccount(channel: SocialChannelType, accountId: string) {
@@ -192,6 +241,7 @@ export class ChannelState {
 					}
 				}
 			}
+			void this.checkAndSyncActiveAccount(channel);
 		}
 	}
 

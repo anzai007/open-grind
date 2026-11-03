@@ -3,6 +3,9 @@
 	import { navigating, page } from "$app/state";
 	import { untrack } from "svelte";
 
+	import { channelState } from "$lib/channel/channel-state.svelte";
+	import ChannelInterestInteractionsPane from "$lib/channel/components/ChannelInterestInteractionsPane.svelte";
+	import ChannelInterestViewsPane from "$lib/channel/components/ChannelInterestViewsPane.svelte";
 	import { navigationPending } from "$lib/util/history";
 	import { SnapPager } from "$lib/util/snap-pager";
 	import { INTEREST_TABS, interestTabIndex } from "./tabs";
@@ -100,12 +103,20 @@
 >
 	<div data-slot="interest-pane-views" class="w-full shrink-0 snap-start">
 		{#if mounted[0]}
-			<ViewsGrid {ourProfileId} />
+			{#if channelState.activeChannel === "grindr"}
+				<ViewsGrid {ourProfileId} />
+			{:else}
+				<ChannelInterestViewsPane />
+			{/if}
 		{/if}
 	</div>
 	<div data-slot="interest-pane-taps" class="w-full shrink-0 snap-start">
 		{#if mounted[1]}
-			<TapsReceivedList {ourProfileId} active={routed === 1} />
+			{#if channelState.activeChannel === "grindr"}
+				<TapsReceivedList {ourProfileId} active={routed === 1} />
+			{:else}
+				<ChannelInterestInteractionsPane active={routed === 1} />
+			{/if}
 		{/if}
 	</div>
 </main>

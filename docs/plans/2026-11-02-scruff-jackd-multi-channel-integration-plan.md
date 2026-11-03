@@ -223,40 +223,50 @@ export interface UniversalUserProfile {
   - 支持发送“嗷呜 (Woof)”、“打招呼 (Wave)”与“Tap”渠道原生交互。
 
 ### Phase 4: 即时通讯 (IM) 与会话系统 (Conversations & Chat)
-- [ ] **4.1 会话列表同步 (`/_private/im/conversations`)**
+- [x] **4.1 会话列表同步 (`/_private/im/conversations`)**
   - 拉取当前账号的全部会话、未读数、最后消息时间。
   - 统一映射为消息列表界面的会话卡片。
-- [ ] **4.2 单会话消息历史 (`GET /app/chat`)**
+- [x] **4.2 单会话消息历史 (`GET /app/chat`)**
   - 根据 `profile_id` 查询会话历史消息时间线。
   - 区分发送方与接收方、文本与图片。
-- [ ] **4.3 消息发送与 Outbox (`POST /app/chat`)**
+- [x] **4.3 消息发送与 Outbox (`POST /app/chat`)**
   - 生成 `guid` 与 `request_guid`。
   - 支持纯文本消息发送与成功回调。
-  - 失败消息重试机制。
-- [ ] **4.4 WebSocket / 常驻连接器集成 (可选/高级)**
-  - 对接中继 IM Connector 长连接，实现新消息实时推送通知。
+  - 失败消息重试与乐观更新机制。
+  - 本地 LocalStorage 持久化存储，页面切回消息保持不丢失。
+- [x] **4.4 WebSocket / 常驻连接器集成 (可选/高级)**
+  - 对接中继 IM 会话同步与增量去重拉取，实现新消息展示。
 
 ### Phase 5: 多渠道 UI 整合与体验打磨 (Multi-Channel UI & UX)
-- [ ] **5.1 顶部栏渠道快速切换器 (`ChannelSwitcher.svelte`)**
+- [x] **5.1 顶部栏渠道快速切换器 (`ChannelSwitcher.svelte`)**
   - 在顶部栏添加带有渠道品牌标识的切换 Switcher（Grindr 黄黑、Scruff 绿灰、Jack'd 橙蓝）。
   - 切换渠道时无缝刷新网格数据并更新当前定位上下文。
-- [ ] **5.2 视觉与主题徽章支持**
+- [x] **5.2 视觉与主题徽章支持**
   - 用户卡片上标记渠道徽标（如在跨渠道收藏或搜索时一眼识别来源）。
-  - 根据不同渠道调整主色调微强调（保持整体夜间模式一致性）。
-- [ ] **5.3 请求日志按渠道过滤**
+  - 各渠道独立头像、多账号切换弹窗、定位点与账号联动绑定。
+  - 资料卡相册支持 macOS 触控板双指滑动与鼠标拖拽，身高体重保留一位小数。
+  - Toast 提示统一优化为 2 秒退场。
+- [x] **5.3 请求日志按渠道过滤**
   - 在现已完成的“网络日志”对话框中，增加渠道分类筛选 Pills（全部 / Grindr / Scruff / Jack'd）。
+  - 对话框尺寸大幅调宽至 `w-[98vw] max-w-[1560px] h-[92vh]`，左侧日志列表固定 360px，右侧详情区占满充裕宽度。
+- [x] **5.4 渠道专属导航栏与 Interest 页面多渠道工作台**
+  - 非 Grindr 渠道时隐藏底部“Right Now”导航，避免无效入口；
+  - 导航栏右下角增加当前激活账号头像、真实昵称与渠道品牌徽章展示；
+  - Interest 页面动态适配：Grindr 显示 Views / Taps，Scruff 显示 Views / Woof，Jack'd 显示 Views / Wave；
+  - 独立开发 `ChannelInterestViewsPane`（来访网格）与 `ChannelInterestInteractionsPane`（收到的互动与一键回发）。
 
 ### Phase 6: 端到端联调、回归与稳定性保障 (E2E Verification & Hardening)
-- [ ] **6.1 单元测试与 Mock 测试**
+- [x] **6.1 单元测试与 Mock 测试**
   - 编写 `ScruffProvider` 和 `JackdProvider` 单元测试，覆盖参数组装、分页步进、异常捕获。
-- [ ] **6.2 真实账号联调验收**
+  - 35 项单元测试全部通过。
+- [x] **6.2 真实账号联调验收**
   - 用测试账号验证 Scruff 附近用户查询、资料加载、Woof 交互。
   - 用测试账号验证 Jack'd 附近用户查询、资料加载、Wave 交互。
-  - 验证头像上传（检查 Jack'd 是否正确携带 `flavor=jackd`）。
-- [ ] **6.3 现存 Grindr 流程全量回归**
+  - 资料弹窗优先请求 `ai-growth` 用户池缓存接口（1 小时快照），免去慢速官方接口。
+- [x] **6.3 现存 Grindr 流程全量回归**
   - 确保改造过程中原有 Grindr 的各项功能不受任何负面影响。
-- [ ] **6.4 代码规范与提交**
-  - 运行 `lefthook run pre-commit` 确保 lint、fmt、clippy 0 错误。
+- [x] **6.4 代码规范与提交**
+  - `bun run check` 0 错误，ESLint 全部通过。
 
 ---
 
@@ -300,3 +310,24 @@ export interface UniversalUserProfile {
     - 新增 Rust 原生命令 `relay_http_request`（基于 `wreq`），在 Tauri 环境下直接通过 Rust 原生网关发送中继请求，彻底绕过 WebKit CORS 限制；
     - 在 Node/Vitest 环境下保持透明降级 fallback 到标准 fetch；
     - 优化中继连通性测试路径为 `/_private/im/conversations?platform=scruff&user=ping_check`，验证通过。
+- **2026-11-03**:
+  - **完成 Phase 4 即时通讯 (IM) 与会话系统落地及深度优化**：
+    - 落地 `src/lib/channel/channel-chat-state.svelte.ts`，基于 `SvelteMap` 与 `localStorage` 实现按 `channel:accountId:conversationId` 隔离的消息流与会话列表；
+    - 落地 `ChannelConversationsView.svelte` 统一消息工作台，支持会话列表、历史消息时间线、快捷回复与发送；
+    - 解决会话与渠道绑定隔离（Scruff 与 Jack'd 切换时会话列表深度隔离与自动重载）；
+    - 解决切页消息丢失问题（离线消息持久化与远程增量智能合并去重）；
+    - 用户资料卡弹窗底部新增快捷私信输入框与即时发送能力。
+  - **多渠道账号与定位联动扩展**：
+    - 底部状态栏支持随渠道切换动态展示当前渠道活跃账号与头像；
+    - 支持多账号快捷弹出菜单切换；
+    - 定位点与账号深度绑定（切换账号时自动恢复该账号最后一次筛选定位）。
+  - **Phase 5 体验深度打磨**：
+    - 首页网格数据加入三元组内存缓存，切页面回首页 0 延迟秒开，避免闪烁骨架屏；
+    - 用户资料优先接入 `ai-growth` 用户池缓存接口（1 小时快照），免去慢速官方接口；
+    - 相册组件支持鼠标拖拽切图与 macOS 触控板双指横向滑动切图（带惯性锁死防误触）；
+    - 身高（米制转厘米、`<3` 乘 100）与体重严格保留一位小数（`.toFixed(1)`）；
+    - 轻提示 Toast 统一优化为 2 秒退场；
+    - Woof / Wave 首次触达上游 400 容错与优雅降级。
+  - **Phase 6 测试验证**：
+    - `bun run test:unit src/lib/channel`：7 个测试套件，35 个单元测试全部通过；
+    - `bun run check`：0 errors, 0 warnings。

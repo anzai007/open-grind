@@ -78,4 +78,12 @@ export interface SocialChannelProvider {
 	): Promise<UniversalInteractionResult>;
 
 	verifyAccount?(account: ChannelAccount): Promise<VerifyAccountResult>;
+
+	syncAccountProfile?(account: ChannelAccount): Promise<ChannelAccount>;
+
+	getViewers?(account?: ChannelAccount): Promise<UniversalGridUser[]>;
+
+	getInteractions?(
+		account?: ChannelAccount,
+	): Promise<UniversalConversation[]>;
 }

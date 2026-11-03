@@ -116,6 +116,32 @@ export function parseRawScruffProfile(
 			? RELATIONSHIP_STATUS_LABELS[p.relationship_status]
 			: undefined;
 
+	const rawRecord = p as unknown as Record<string, unknown>;
+	const rawHeight = p.height ?? rawRecord.heightCm ?? rawRecord.height_cm;
+	let heightCm: number | undefined;
+	if (rawHeight !== undefined && rawHeight !== null) {
+		const numHeight =
+			typeof rawHeight === "string"
+				? parseFloat(rawHeight)
+				: Number(rawHeight);
+		if (!Number.isNaN(numHeight)) {
+			const inCm = numHeight < 3 ? numHeight * 100 : numHeight;
+			heightCm = Number(inCm.toFixed(1));
+		}
+	}
+
+	const rawWeight = p.weight_kg ?? rawRecord.weight ?? rawRecord.weightKg;
+	let weightKg: number | undefined;
+	if (rawWeight !== undefined && rawWeight !== null) {
+		const numWeight =
+			typeof rawWeight === "string"
+				? parseFloat(rawWeight)
+				: Number(rawWeight);
+		if (!Number.isNaN(numWeight)) {
+			weightKg = Number(numWeight.toFixed(1));
+		}
+	}
+
 	return {
 		about: p.about || undefined,
 		age: p.age,
@@ -130,7 +156,7 @@ export function parseRawScruffProfile(
 				? `${p.distance.toFixed(1)} km`
 				: undefined,
 		ethnicity,
-		heightCm: p.height,
+		heightCm,
 		id: String(p.id),
 		isOnline: Boolean(p.logged_in),
 		photos,
@@ -138,6 +164,6 @@ export function parseRawScruffProfile(
 		relationshipStatus,
 		rolePreference,
 		socialLinks,
-		weightKg: p.weight_kg,
+		weightKg,
 	};
 }

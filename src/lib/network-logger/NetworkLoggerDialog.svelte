@@ -17,11 +17,20 @@
 
 	type HttpStatusFilter = "all" | "2xx" | "4xx+" | "pending";
 	type WsDirectionFilter = "all" | "sent" | "received";
+	type ChannelFilter = "all" | "grindr" | "scruff" | "jackd";
 
 	let searchInput = $state("");
 	let httpStatusFilter = $state<HttpStatusFilter>("all");
 	let wsDirectionFilter = $state<WsDirectionFilter>("all");
+	let channelFilter = $state<ChannelFilter>("all");
 	let mobileView = $state<"list" | "detail">("list");
+
+	const CHANNEL_FILTERS: Array<{ id: ChannelFilter; label: string }> = [
+		{ id: "all", label: "全部" },
+		{ id: "grindr", label: "Grindr" },
+		{ id: "scruff", label: "Scruff" },
+		{ id: "jackd", label: "Jack'd" },
+	];
 
 	const HTTP_FILTERS: Array<{ id: HttpStatusFilter; label: string }> = [
 		{ id: "all", label: "全部" },
@@ -36,9 +45,46 @@
 		{ id: "received", label: "↓ 接收" },
 	];
 
+	function matchesChannel(
+		entry: HttpLogEntry,
+		filter: ChannelFilter,
+	): boolean {
+		if (filter === "all") return true;
+		const platformHdr = (
+			entry.requestHeaders?.["omni-platform"] ||
+			entry.requestHeaders?.["Omni-Platform"] ||
+			""
+		).toLowerCase();
+		const urlLower = entry.url.toLowerCase();
+		const pathLower = entry.path.toLowerCase();
+
+		const isScruff =
+			platformHdr === "scruff" ||
+			urlLower.includes("scruff") ||
+			pathLower.includes("scruff");
+
+		const isJackd =
+			platformHdr === "jackd" ||
+			urlLower.includes("jackd") ||
+			pathLower.includes("jackd");
+
+		const isNonGrindr =
+			isScruff ||
+			isJackd ||
+			urlLower.includes("omni-") ||
+			pathLower.includes("omni-");
+
+		if (filter === "scruff") return isScruff;
+		if (filter === "jackd") return isJackd;
+		if (filter === "grindr") return !isNonGrindr;
+		return true;
+	}
+
 	const filteredHttpLogs = $derived.by(() => {
 		const q = searchInput.trim().toLowerCase();
 		return networkLoggerState.httpLogs.filter((entry) => {
+			if (!matchesChannel(entry, channelFilter)) return false;
+
 			if (httpStatusFilter === "2xx") {
 				if (
 					typeof entry.status !== "number" ||
@@ -117,7 +163,7 @@
 
 <Dialog.Root bind:open={networkLoggerState.open}>
 	<Dialog.Content
-		class="flex h-[88vh] max-h-[88vh] w-[95vw] max-w-6xl flex-col gap-0 overflow-hidden rounded-2xl border border-border bg-card p-0 text-card-foreground shadow-2xl"
+		class="flex h-[92vh] max-h-[92vh] w-[98vw] max-w-[1560px] flex-col gap-0 overflow-hidden rounded-2xl border border-border bg-card p-0 text-card-foreground shadow-2xl"
 		showCloseButton={false}
 	>
 		<!-- Header -->
@@ -259,28 +305,53 @@
 			</div>
 
 			<!-- Filter Pills -->
-			<div class="flex items-center gap-1 text-xs">
+			<div class="flex flex-wrap items-center gap-2 text-xs">
 				{#if networkLoggerState.activeTab === "http"}
-					<span class="me-1 text-2xs text-muted-foreground"
-						>状态:</span
-					>
-					{#each HTTP_FILTERS as filter (filter.id)}
-						<button
-							type="button"
-							class={[
-								"rounded-md px-2 py-0.5 text-2xs font-medium transition-colors",
-								{
-									"bg-secondary font-semibold text-secondary-foreground":
-										httpStatusFilter === filter.id,
-									"text-muted-foreground hover:bg-muted/50 hover:text-foreground":
-										httpStatusFilter !== filter.id,
-								},
-							]}
-							onclick={() => (httpStatusFilter = filter.id)}
+					<div class="flex items-center gap-1">
+						<span class="me-1 text-2xs text-muted-foreground"
+							>渠道:</span
 						>
-							{filter.label}
-						</button>
-					{/each}
+						{#each CHANNEL_FILTERS as filter (filter.id)}
+							<button
+								type="button"
+								class={[
+									"rounded-md px-2 py-0.5 text-2xs font-medium transition-colors",
+									{
+										"bg-primary font-semibold text-primary-foreground":
+											channelFilter === filter.id,
+										"text-muted-foreground hover:bg-muted/50 hover:text-foreground":
+											channelFilter !== filter.id,
+									},
+								]}
+								onclick={() => (channelFilter = filter.id)}
+							>
+								{filter.label}
+							</button>
+						{/each}
+					</div>
+					<div class="h-3.5 w-px bg-border/60"></div>
+					<div class="flex items-center gap-1">
+						<span class="me-1 text-2xs text-muted-foreground"
+							>状态:</span
+						>
+						{#each HTTP_FILTERS as filter (filter.id)}
+							<button
+								type="button"
+								class={[
+									"rounded-md px-2 py-0.5 text-2xs font-medium transition-colors",
+									{
+										"bg-secondary font-semibold text-secondary-foreground":
+											httpStatusFilter === filter.id,
+										"text-muted-foreground hover:bg-muted/50 hover:text-foreground":
+											httpStatusFilter !== filter.id,
+									},
+								]}
+								onclick={() => (httpStatusFilter = filter.id)}
+							>
+								{filter.label}
+							</button>
+						{/each}
+					</div>
 				{:else}
 					<span class="me-1 text-2xs text-muted-foreground"
 						>方向:</span
@@ -313,8 +384,10 @@
 				class={[
 					"scrollbar-thin flex flex-col overflow-y-auto border-r border-border bg-card transition-all",
 					{
-						"hidden md:flex md:w-[38%]": mobileView === "detail",
-						"w-full md:w-[38%]": mobileView !== "detail",
+						"hidden md:flex md:w-[360px] md:min-w-[320px] md:shrink-0":
+							mobileView === "detail",
+						"w-full md:w-[360px] md:min-w-[320px] md:shrink-0":
+							mobileView !== "detail",
 					},
 				]}
 			>

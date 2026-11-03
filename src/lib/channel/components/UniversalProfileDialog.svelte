@@ -4,6 +4,7 @@
 	import CheckIcon from "phosphor-svelte/lib/CheckIcon";
 	import FireIcon from "phosphor-svelte/lib/FireIcon";
 	import HandWavingIcon from "phosphor-svelte/lib/HandWavingIcon";
+	import PaperPlaneRightIcon from "phosphor-svelte/lib/PaperPlaneRightIcon";
 	import PawPrintIcon from "phosphor-svelte/lib/PawPrintIcon";
 	import WarningCircleIcon from "phosphor-svelte/lib/WarningCircleIcon";
 	import XIcon from "phosphor-svelte/lib/XIcon";
@@ -12,6 +13,7 @@
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button } from "$lib/components/ui/button";
 	import * as Dialog from "$lib/components/ui/dialog";
+	import { Input } from "$lib/components/ui/input";
 	import { Spinner } from "$lib/components/ui/spinner";
 	import { channelChatState } from "../channel-chat-state.svelte";
 	import { channelState } from "../channel-state.svelte";
@@ -20,6 +22,8 @@
 
 	let isInteracting = $state(false);
 	let interactionSent = $state(false);
+	let quickMessage = $state("");
+	let isSendingQuick = $state(false);
 
 	const user = $derived(channelState.selectedUserProfile);
 	const currentMeta = $derived(channelState.currentMeta);
@@ -40,13 +44,15 @@
 				interactionSent = true;
 				toast.success(
 					res.message || `已向 ${user.displayName} 发送交互`,
+					{ duration: 2000 },
 				);
 			} else {
-				toast.error(res.message || "交互发送失败");
+				toast.error(res.message || "交互发送失败", { duration: 2000 });
 			}
 		} catch (e) {
 			toast.error(
 				`发送失败: ${e instanceof Error ? e.message : String(e)}`,
+				{ duration: 2000 },
 			);
 		} finally {
 			isInteracting = false;
@@ -62,6 +68,44 @@
 		});
 		channelState.closeProfile();
 		void goto("/chat");
+	}
+
+	async function handleSendQuickMessage() {
+		const text = quickMessage.trim();
+		if (!text || !user || isSendingQuick) return;
+		isSendingQuick = true;
+
+		try {
+			channelChatState.openChatWithUser({
+				id: user.id,
+				displayName: user.displayName,
+				avatarThumbnailUrl: user.photos?.[0]?.thumbnailUrl,
+			});
+
+			const sent = await channelChatState.sendMessage(text);
+			if (sent) {
+				toast.success(`已向 ${user.displayName || "该用户"} 发送私信`, {
+					duration: 2000,
+				});
+				quickMessage = "";
+			} else {
+				toast.error("私信发送失败，请稍后重试", { duration: 2000 });
+			}
+		} catch (e) {
+			toast.error(
+				`发送失败: ${e instanceof Error ? e.message : String(e)}`,
+				{ duration: 2000 },
+			);
+		} finally {
+			isSendingQuick = false;
+		}
+	}
+
+	function handleQuickKeyDown(e: KeyboardEvent) {
+		if (e.key === "Enter" && !e.shiftKey) {
+			e.preventDefault();
+			void handleSendQuickMessage();
+		}
 	}
 </script>
 
@@ -194,39 +238,68 @@
 
 		{#if user}
 			<div
-				class="flex items-center gap-2 border-t border-border/60 bg-background p-3"
+				class="flex flex-col gap-2.5 border-t border-border/60 bg-background/95 p-3 backdrop-blur-md"
 			>
-				<Button
-					variant="outline"
-					onclick={handleStartChat}
-					class="h-9 flex-1 gap-2 text-xs"
-				>
-					<ChatTeardropTextIcon class="size-4" />
-					<span>发私信</span>
-				</Button>
+				<div class="flex items-center gap-2">
+					<Input
+						placeholder={`发送快捷私信给 ${user.displayName || "该用户"}...`}
+						bind:value={quickMessage}
+						onkeydown={handleQuickKeyDown}
+						disabled={isSendingQuick}
+						class="h-9 flex-1 text-xs"
+					/>
+					<Button
+						size="sm"
+						disabled={isSendingQuick || !quickMessage.trim()}
+						onclick={handleSendQuickMessage}
+						class="h-9 gap-1.5 px-3.5 text-xs"
+					>
+						{#if isSendingQuick}
+							<Spinner class="size-3.5" />
+						{:else}
+							<PaperPlaneRightIcon
+								class="size-3.5"
+								weight="bold"
+							/>
+						{/if}
+						<span>发送</span>
+					</Button>
+				</div>
 
-				<Button
-					disabled={isInteracting || interactionSent}
-					onclick={handleSendInteraction}
-					class="h-9 flex-1 gap-2 text-xs"
-				>
-					{#if isInteracting}
-						<Spinner class="size-4" />
-						<span>发送中...</span>
-					{:else if interactionSent}
-						<CheckIcon class="size-4" weight="bold" />
-						<span>已发送</span>
-					{:else if channelState.activeChannel === "scruff"}
-						<PawPrintIcon class="size-4" weight="bold" />
-						<span>嗷呜 (Woof)</span>
-					{:else if channelState.activeChannel === "jackd"}
-						<HandWavingIcon class="size-4" weight="bold" />
-						<span>打招呼 (Wave)</span>
-					{:else}
-						<FireIcon class="size-4" weight="bold" />
-						<span>Tap</span>
-					{/if}
-				</Button>
+				<div class="flex items-center gap-2">
+					<Button
+						variant="outline"
+						onclick={handleStartChat}
+						class="h-8.5 flex-1 gap-1.5 text-xs"
+					>
+						<ChatTeardropTextIcon class="size-3.5" />
+						<span>完整会话</span>
+					</Button>
+
+					<Button
+						disabled={isInteracting || interactionSent}
+						onclick={handleSendInteraction}
+						variant="secondary"
+						class="h-8.5 flex-1 gap-1.5 text-xs"
+					>
+						{#if isInteracting}
+							<Spinner class="size-3.5" />
+							<span>发送中...</span>
+						{:else if interactionSent}
+							<CheckIcon class="size-3.5" weight="bold" />
+							<span>已发送</span>
+						{:else if channelState.activeChannel === "scruff"}
+							<PawPrintIcon class="size-3.5" weight="bold" />
+							<span>嗷呜 (Woof)</span>
+						{:else if channelState.activeChannel === "jackd"}
+							<HandWavingIcon class="size-3.5" weight="bold" />
+							<span>打招呼 (Wave)</span>
+						{:else}
+							<FireIcon class="size-3.5" weight="bold" />
+							<span>Tap</span>
+						{/if}
+					</Button>
+				</div>
 			</div>
 		{/if}
 	</Dialog.Content>

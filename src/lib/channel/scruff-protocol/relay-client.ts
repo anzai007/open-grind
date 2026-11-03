@@ -65,7 +65,9 @@ function toBrowserSafeUrl(url: string): string {
 	}
 	return url
 		.replace(/^https:\/\/omni-relay\.toonhub\.top/i, "/_omni_relay")
-		.replace(/^https:\/\/omni-api\.toonhub\.top/i, "/_omni_api");
+		.replace(/^https:\/\/omni-api\.toonhub\.top/i, "/_omni_api")
+		.replace(/^http:\/\/127\.0\.0\.1:9501/i, "/_ai_growth_api")
+		.replace(/^http:\/\/localhost:9501/i, "/_ai_growth_api");
 }
 
 export class RelayClient {

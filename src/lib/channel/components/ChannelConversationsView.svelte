@@ -4,7 +4,7 @@
 	import ChatsCircleIcon from "phosphor-svelte/lib/ChatsCircleIcon";
 	import PaperPlaneRightIcon from "phosphor-svelte/lib/PaperPlaneRightIcon";
 	import UserIcon from "phosphor-svelte/lib/UserIcon";
-	import { onMount, tick } from "svelte";
+	import { tick } from "svelte";
 
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
@@ -12,6 +12,7 @@
 	import { channelChatState } from "../channel-chat-state.svelte";
 	import { channelState } from "../channel-state.svelte";
 	import ChannelMessageBubble from "./ChannelMessageBubble.svelte";
+	import ChannelNoAccountEmpty from "./ChannelNoAccountEmpty.svelte";
 
 	let messageInput = $state("");
 	let messagesContainer: HTMLDivElement | null = $state(null);
@@ -23,10 +24,29 @@
 		(channelState.accounts[channelState.activeChannel]?.length ?? 0) > 0,
 	);
 
-	onMount(() => {
+	const currentScopeKey = $derived(
+		`${channelState.activeChannel}:${channelState.currentAccount?.id ?? "none"}`,
+	);
+	let lastLoadedScopeKey: string | null = null;
+
+	$effect(() => {
+		const key = currentScopeKey;
+		if (lastLoadedScopeKey === key) return;
+		lastLoadedScopeKey = key;
+		channelChatState.activeConversationId = null;
+		channelChatState.messages = [];
+		channelChatState.switchScope();
 		if (hasAccount) {
 			void channelChatState.loadConversations();
 		}
+	});
+
+	// 启动 5 秒静默轮询，实时接收新私信
+	$effect(() => {
+		channelChatState.startPolling(5000);
+		return () => {
+			channelChatState.stopPolling();
+		};
 	});
 
 	// 当消息流更新时，平滑滚动至底部
@@ -96,30 +116,7 @@
 
 <div class="relative flex h-full w-full flex-1 overflow-hidden bg-background">
 	{#if !hasAccount}
-		<div
-			class="m-auto flex max-w-sm flex-col items-center justify-center p-8 text-center"
-		>
-			<div
-				class="flex size-14 items-center justify-center rounded-2xl text-white shadow-md"
-				style:background-color={currentMeta.brandColor}
-			>
-				<ChatsCircleIcon class="size-8" weight="bold" />
-			</div>
-			<h3 class="mt-4 text-base font-semibold text-foreground">
-				尚未配置 {currentMeta.name} 账号
-			</h3>
-			<p class="mt-1.5 text-xs text-muted-foreground">
-				配置并激活 {currentMeta.name} 账号后，即可同步收发私信消息。
-			</p>
-			<Button
-				size="sm"
-				class="mt-5 text-xs"
-				onclick={() =>
-					channelState.openAccountDialog(channelState.activeChannel)}
-			>
-				前往添加账号
-			</Button>
-		</div>
+		<ChannelNoAccountEmpty />
 	{:else}
 		<!-- 左侧：会话列表 (在移动端若选中对话则隐藏) -->
 		<div
@@ -299,16 +296,41 @@
 						</div>
 					</div>
 
-					<Button
-						variant="ghost"
-						size="sm"
-						onclick={() =>
-							handleViewProfile(activeConv.targetUserId)}
-						class="h-7 gap-1 px-2 text-xs"
-					>
-						<UserIcon class="size-3.5" />
-						<span>查看资料</span>
-					</Button>
+					<div class="flex items-center gap-1">
+						<button
+							type="button"
+							onclick={() => {
+								if (activeConv) {
+									void channelChatState.loadMessages(
+										activeConv.conversationId,
+									);
+								}
+							}}
+							disabled={channelChatState.isLoadingMessages}
+							class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+							title="刷新消息"
+						>
+							<ArrowsClockwiseIcon
+								class={[
+									"size-4",
+									{
+										"animate-spin":
+											channelChatState.isLoadingMessages,
+									},
+								]}
+							/>
+						</button>
+						<Button
+							variant="ghost"
+							size="sm"
+							onclick={() =>
+								handleViewProfile(activeConv.targetUserId)}
+							class="h-7 gap-1 px-2 text-xs"
+						>
+							<UserIcon class="size-3.5" />
+							<span>查看资料</span>
+						</Button>
+					</div>
 				</div>
 
 				<!-- 聊天消息时间线 -->

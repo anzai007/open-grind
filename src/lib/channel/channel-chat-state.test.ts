@@ -102,4 +102,85 @@ describe("ChannelChatState", () => {
 		expect(channelChatState.activeConversationId).toBe("user-target-888");
 		expect(channelChatState.activeConversation).not.toBeNull();
 	});
+
+	it("retains sent messages when re-selecting conversation even if server returns empty messages", async () => {
+		channelChatState.openChatWithUser({
+			id: "user-persistent-123",
+			displayName: "Persistent User",
+		});
+
+		const currentProvider = channelState.currentProvider;
+		vi.spyOn(currentProvider, "sendMessage").mockResolvedValue({
+			channel: "scruff",
+			conversationId: "user-persistent-123",
+			id: "sent-msg-1",
+			isFromMe: true,
+			recipientId: "user-persistent-123",
+			senderId: "me",
+			status: "sent",
+			text: "I sent this message",
+			timestamp: Date.now(),
+		});
+
+		await channelChatState.sendMessage("I sent this message");
+		expect(channelChatState.messages).toHaveLength(1);
+		expect(channelChatState.messages[0]!.text).toBe("I sent this message");
+
+		// 模拟切出该会话（切换页面）
+		channelChatState.activeConversationId = null;
+		channelChatState.messages = [];
+
+		// 模拟服务端接口返回空列表（Scruff 典型场景）
+		vi.spyOn(currentProvider, "getMessages").mockResolvedValue([]);
+
+		// 模拟用户从其他页面切回并重新点击进入该会话
+		await channelChatState.selectConversation("user-persistent-123");
+
+		// 验证：消息未丢失，依然完整展示
+		expect(channelChatState.messages).toHaveLength(1);
+		expect(channelChatState.messages[0]!.text).toBe("I sent this message");
+		expect(channelChatState.messages[0]!.status).toBe("sent");
+	});
+
+	it("isolates conversations between channels", () => {
+		// Scruff 渠道添加会话
+		channelState.switchChannel("scruff");
+		channelChatState.switchScope();
+		channelChatState.openChatWithUser({
+			id: "scruff-user-1",
+			displayName: "Scruff Guy",
+		});
+
+		expect(channelChatState.conversations).toHaveLength(1);
+		expect(channelChatState.conversations[0]!.targetUserId).toBe(
+			"scruff-user-1",
+		);
+
+		// 切换至 Jack'd 渠道
+		channelState.switchChannel("jackd");
+		channelChatState.switchScope();
+
+		// Jack'd 渠道应当独立隔离，初始为空
+		expect(channelChatState.conversations).toHaveLength(0);
+
+		// Jack'd 渠道新增联系人
+		channelChatState.openChatWithUser({
+			id: "jackd-user-1",
+			displayName: "Jackd Guy",
+		});
+		expect(channelChatState.conversations).toHaveLength(1);
+		expect(channelChatState.conversations[0]!.targetUserId).toBe(
+			"jackd-user-1",
+		);
+
+		// 切回 Scruff 渠道
+		channelState.switchChannel("scruff");
+		channelChatState.switchScope();
+
+		// 验证 Scruff 渠道会话完整保留且未被 Jack'd 污染
+		expect(channelChatState.conversations).toHaveLength(1);
+		expect(channelChatState.conversations[0]!.targetUserId).toBe(
+			"scruff-user-1",
+		);
+	});
 });

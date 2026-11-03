@@ -47,6 +47,12 @@ export default defineConfig(async ({ command }) => ({
 				secure: true,
 				rewrite: (path) => path.replace(/^\/_omni_api/, ""),
 			},
+			"/_ai_growth_api": {
+				target: "http://127.0.0.1:9501",
+				changeOrigin: true,
+				secure: false,
+				rewrite: (path) => path.replace(/^\/_ai_growth_api/, ""),
+			},
 		},
 		fs: {
 			allow: [

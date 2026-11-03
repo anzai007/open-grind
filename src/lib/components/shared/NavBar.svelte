@@ -99,14 +99,17 @@
 			<DotsNineIcon weight="fill" />
 			{@render label("Browse")}
 		</a>
-		<a
-			href="/right-now"
-			data-active={page.route.id === "/(protected)/(navbar)/right-now"}
-			onclick={tabNavigation({ href: "/right-now" })}
-		>
-			<DropIcon weight="fill" />
-			{@render label("Right Now")}
-		</a>
+		{#if channelState.activeChannel === "grindr"}
+			<a
+				href="/right-now"
+				data-active={page.route.id ===
+					"/(protected)/(navbar)/right-now"}
+				onclick={tabNavigation({ href: "/right-now" })}
+			>
+				<DropIcon weight="fill" />
+				{@render label("Right Now")}
+			</a>
+		{/if}
 		<a
 			href="/interest"
 			data-active={page.route.id?.startsWith(
@@ -139,21 +142,21 @@
 			{/if}
 		</a>
 	</div>
-	<a
-		href="/settings"
-		aria-label="Me"
-		onclick={tabNavigation({ href: "/settings" })}
-		class={[
-			"relative flex size-14 shrink-0 rounded-full border bg-muted p-1 transition-colors motion-reduce:transition-none",
-			{
-				"border-2 border-accent":
-					page.route.id === "/(protected)/(navbar)/settings/(me)",
-				"border-border":
-					page.route.id !== "/(protected)/(navbar)/settings/(me)",
-			},
-		]}
-	>
-		{#if channelState.activeChannel === "grindr"}
+	{#if channelState.activeChannel === "grindr"}
+		<a
+			href="/settings"
+			aria-label="Me"
+			onclick={tabNavigation({ href: "/settings" })}
+			class={[
+				"relative flex size-14 shrink-0 rounded-full border bg-muted p-1 transition-colors motion-reduce:transition-none",
+				{
+					"border-2 border-accent":
+						page.route.id === "/(protected)/(navbar)/settings/(me)",
+					"border-border":
+						page.route.id !== "/(protected)/(navbar)/settings/(me)",
+				},
+			]}
+		>
 			{#await myProfilePhotos then photos}
 				{@const mainPhoto = photos[0] as
 					| { mediaHash: string }
@@ -166,35 +169,67 @@
 			{:catch}
 				<BrokenUserAvatar />
 			{/await}
-		{:else}
-			{#if currentAccount?.avatarUrl}
-				<img
-					src={currentAccount.avatarUrl}
-					alt={currentAccount.name}
-					class="size-full rounded-full object-cover"
-				/>
-			{:else if currentAccount}
-				<div
-					class="flex size-full items-center justify-center rounded-full text-xs font-bold text-white shadow-xs"
+		</a>
+	{:else}
+		<a
+			href="/settings"
+			aria-label="Me"
+			onclick={tabNavigation({ href: "/settings" })}
+			class={[
+				"relative flex h-14 max-w-[150px] shrink-0 items-center gap-2 rounded-full border bg-muted/80 px-2 py-1 transition-colors motion-reduce:transition-none",
+				{
+					"border-2 border-accent":
+						page.route.id === "/(protected)/(navbar)/settings/(me)",
+					"border-border":
+						page.route.id !== "/(protected)/(navbar)/settings/(me)",
+				},
+			]}
+			title={currentAccount
+				? `${currentAccount.name} (${currentMeta.name})`
+				: "切换账号"}
+		>
+			<div class="relative size-10 shrink-0">
+				{#if currentAccount?.avatarUrl}
+					<img
+						src={currentAccount.avatarUrl}
+						alt={currentAccount.name}
+						class="size-full rounded-full object-cover"
+					/>
+				{:else if currentAccount}
+					<div
+						class="flex size-full items-center justify-center rounded-full text-xs font-bold text-white shadow-xs"
+						style:background-color={currentMeta.brandColor}
+					>
+						{currentAccount.name.slice(0, 2).toUpperCase()}
+					</div>
+				{:else}
+					<div
+						class="flex size-full items-center justify-center rounded-full bg-muted text-muted-foreground"
+					>
+						<UserIcon class="size-5" />
+					</div>
+				{/if}
+				<span
+					class="absolute -right-0.5 -bottom-0.5 flex size-3.5 items-center justify-center rounded-full border border-background text-[8px] font-bold text-white shadow-xs"
 					style:background-color={currentMeta.brandColor}
 				>
-					{currentAccount.name.slice(0, 2).toUpperCase()}
-				</div>
-			{:else}
-				<div
-					class="flex size-full items-center justify-center rounded-full bg-muted text-muted-foreground"
+					{currentMeta.shortName.slice(0, 1)}
+				</span>
+			</div>
+			<div class="flex min-w-0 flex-1 flex-col pr-1 text-left">
+				<span
+					class="truncate text-xs leading-tight font-semibold text-foreground"
 				>
-					<UserIcon class="size-6" />
-				</div>
-			{/if}
-			<span
-				class="absolute -right-0.5 -bottom-0.5 flex size-4 items-center justify-center rounded-full border-2 border-background text-[9px] font-bold text-white shadow-xs"
-				style:background-color={currentMeta.brandColor}
-			>
-				{currentMeta.shortName.slice(0, 1)}
-			</span>
-		{/if}
-	</a>
+					{currentAccount?.name || "未登录"}
+				</span>
+				<span
+					class="truncate text-[10px] leading-tight text-muted-foreground"
+				>
+					{currentMeta.name}
+				</span>
+			</div>
+		</a>
+	{/if}
 </ProgressiveBlur>
 
 <style lang="postcss">

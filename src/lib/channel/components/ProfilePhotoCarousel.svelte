@@ -13,14 +13,130 @@
 	let activePhotoIndex = $state(0);
 
 	const currentPhoto = $derived(photos[activePhotoIndex]);
+
+	let startX = 0;
+	let startY = 0;
+	let isDragging = false;
+
+	let accumulatedDeltaX = 0;
+	let isWheelLocked = false;
+	let wheelResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function handlePointerDown(e: PointerEvent) {
+		if (photos.length <= 1) return;
+		startX = e.clientX;
+		startY = e.clientY;
+		isDragging = true;
+		try {
+			(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		} catch {
+			// ignore
+		}
+	}
+
+	function handlePointerUp(e: PointerEvent) {
+		if (!isDragging) return;
+		isDragging = false;
+		const diffX = e.clientX - startX;
+		const diffY = Math.abs(e.clientY - startY);
+
+		// 水平拖动距离大于 40px 且大于垂直位移，触发切图
+		if (Math.abs(diffX) > 40 && Math.abs(diffX) > diffY) {
+			if (diffX < 0) {
+				activePhotoIndex = Math.min(
+					photos.length - 1,
+					activePhotoIndex + 1,
+				);
+			} else {
+				activePhotoIndex = Math.max(0, activePhotoIndex - 1);
+			}
+		}
+	}
+
+	function handlePointerCancel() {
+		isDragging = false;
+	}
+
+	function handleWheel(e: WheelEvent) {
+		if (photos.length <= 1) return;
+
+		const absX = Math.abs(e.deltaX);
+		const absY = Math.abs(e.deltaY);
+
+		// 判断是否属于 macOS 触控板双指横向滑动（或 Shift + 滚轮）
+		const isHorizontalSwipe = absX > absY || (e.shiftKey && absY > 0);
+		if (!isHorizontalSwipe) return;
+
+		// 阻止 macOS 原生滑动前进/后退或页面横向滚动
+		e.preventDefault();
+		e.stopPropagation();
+
+		const delta = e.shiftKey && absY > absX ? e.deltaY : e.deltaX;
+
+		// 刷新惯性滑动结束重置计时器
+		if (wheelResetTimer) {
+			clearTimeout(wheelResetTimer);
+		}
+		wheelResetTimer = setTimeout(() => {
+			accumulatedDeltaX = 0;
+			isWheelLocked = false;
+		}, 180);
+
+		if (isWheelLocked) {
+			return;
+		}
+
+		accumulatedDeltaX += delta;
+
+		// 滑动阈值：触控板位移达到 35px 即触发切图
+		const SWIPE_THRESHOLD = 35;
+		if (Math.abs(accumulatedDeltaX) >= SWIPE_THRESHOLD) {
+			if (accumulatedDeltaX > 0) {
+				// 双指左滑（向右滚动） -> 切换下一张图片
+				activePhotoIndex = Math.min(
+					photos.length - 1,
+					activePhotoIndex + 1,
+				);
+			} else {
+				// 双指右滑（向左滚动） -> 切换上一张图片
+				activePhotoIndex = Math.max(0, activePhotoIndex - 1);
+			}
+			accumulatedDeltaX = 0;
+			isWheelLocked = true;
+		}
+	}
+
+	function wheelSwipe(node: HTMLElement) {
+		node.addEventListener("wheel", handleWheel, { passive: false });
+		return {
+			destroy() {
+				node.removeEventListener("wheel", handleWheel);
+				if (wheelResetTimer) {
+					clearTimeout(wheelResetTimer);
+				}
+			},
+		};
+	}
 </script>
 
-<div class="relative aspect-4/5 w-full overflow-hidden bg-muted/50">
+<div
+	use:wheelSwipe
+	role="region"
+	aria-label="相册图片预览"
+	class={[
+		"relative aspect-4/5 w-full touch-pan-y overflow-hidden bg-muted/50 select-none",
+		{ "cursor-grab active:cursor-grabbing": photos.length > 1 },
+	]}
+	onpointerdown={handlePointerDown}
+	onpointerup={handlePointerUp}
+	onpointercancel={handlePointerCancel}
+>
 	{#if currentPhoto?.fullsizeUrl || currentPhoto?.thumbnailUrl}
 		<img
 			src={currentPhoto.fullsizeUrl || currentPhoto.thumbnailUrl}
 			alt={displayName}
-			class="h-full w-full object-cover"
+			draggable="false"
+			class="pointer-events-none h-full w-full object-cover"
 		/>
 	{:else}
 		<div
@@ -38,8 +154,10 @@
 				variant="secondary"
 				size="icon"
 				disabled={activePhotoIndex === 0}
-				onclick={() =>
-					(activePhotoIndex = Math.max(0, activePhotoIndex - 1))}
+				onclick={(e) => {
+					e.stopPropagation();
+					activePhotoIndex = Math.max(0, activePhotoIndex - 1);
+				}}
 				class="size-8 rounded-full bg-black/50 text-white backdrop-blur-xs hover:bg-black/70 disabled:opacity-30"
 			>
 				<ArrowLeftIcon class="size-4" />
@@ -55,11 +173,13 @@
 				variant="secondary"
 				size="icon"
 				disabled={activePhotoIndex === photos.length - 1}
-				onclick={() =>
-					(activePhotoIndex = Math.min(
+				onclick={(e) => {
+					e.stopPropagation();
+					activePhotoIndex = Math.min(
 						photos.length - 1,
 						activePhotoIndex + 1,
-					))}
+					);
+				}}
 				class="size-8 rounded-full bg-black/50 text-white backdrop-blur-xs hover:bg-black/70 disabled:opacity-30"
 			>
 				<ArrowRightIcon class="size-4" />
@@ -89,6 +209,7 @@
 				<img
 					src={p.thumbnailUrl || p.fullsizeUrl}
 					alt=""
+					draggable="false"
 					class="h-full w-full object-cover"
 				/>
 			</button>

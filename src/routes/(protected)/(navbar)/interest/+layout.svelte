@@ -3,6 +3,7 @@
 	import { page } from "$app/state";
 	import { onDestroy } from "svelte";
 
+	import { channelState } from "$lib/channel/channel-state.svelte";
 	import ProgressiveBlur from "$lib/components/shared/ProgressiveBlur.svelte";
 	import { Button } from "$lib/components/ui/button";
 	import { toggleVariants } from "$lib/components/ui/toggle";
@@ -11,7 +12,7 @@
 	import { topChrome } from "$lib/util/screen-chrome.svelte";
 	import { cn } from "$lib/util/utils";
 	import InterestPager from "./InterestPager.svelte";
-	import { INTEREST_TABS, interestTabIndex } from "./tabs";
+	import { getInterestTabs, interestTabIndex } from "./tabs";
 
 	let { data }: import("./$types").LayoutProps = $props();
 
@@ -21,6 +22,7 @@
 	let restingTab = $state<number>();
 	let settling = 0;
 
+	const currentTabs = $derived(getInterestTabs(channelState.activeChannel));
 	const routedTab = $derived(interestTabIndex(page.url.pathname));
 	const chipFollows = $derived(
 		!chipDetachesAtRest ||
@@ -80,11 +82,11 @@
 				"tab-chip pointer-events-none absolute inset-y-0 left-0 -z-10 rounded-3xl bg-muted-foreground/15",
 				{ "tab-chip-following": chipFollows },
 			]}
-			style:width="{100 / INTEREST_TABS.length}%"
+			style:width="{100 / currentTabs.length}%"
 			style:--routed-tab={routedTab}
-			style:--last-tab={INTEREST_TABS.length - 1}
+			style:--last-tab={currentTabs.length - 1}
 		></span>
-		{#each INTEREST_TABS as { href, label } (href)}
+		{#each currentTabs as { href, label } (href)}
 			{@render tab(href, label)}
 		{/each}
 	</ProgressiveBlur>

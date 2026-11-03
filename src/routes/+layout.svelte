@@ -185,7 +185,8 @@
 			position="bottom-center"
 			offset={toastOffset}
 			mobileOffset={toastOffset}
-			toastOptions={{ class: "toast" }}
+			duration={2000}
+			toastOptions={{ class: "toast", duration: 2000 }}
 			expand
 		/>
 	</div>
