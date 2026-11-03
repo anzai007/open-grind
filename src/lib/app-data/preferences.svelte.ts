@@ -114,6 +114,7 @@ export async function hydratePreferences(): Promise<void> {
 export async function setPreferences(
 	newValues: Partial<Preferences>,
 ): Promise<void> {
+	snapshot = { ...snapshot, ...newValues };
 	await enqueueWrite(async () => {
 		const oldValues = await getPreferences();
 		const preferences = preferencesSchema.parse({

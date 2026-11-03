@@ -250,4 +250,31 @@ describe("ChannelState", () => {
 		expect(state.currentAccount?.lastGeohash).toBe("dr5ru");
 		expect(state.currentAccount?.lastLocationName).toBe("美国·纽约");
 	});
+
+	it("automatically repairs corrupted geohash when lastLocationName is Tokyo but geohash points to Germany", () => {
+		// Germany Frankfurt geohash: u0pj
+		const germanyGeohash = "u0pjz8146789";
+		const corruptedAccount: ChannelAccount = {
+			id: "acc-corrupted-tokyo",
+			channel: "scruff",
+			accountIdentifier: "zoptjzmm43@gmail.com",
+			name: "Tokyo Account",
+			isEnabled: true,
+			createdAt: Date.now(),
+			lastGeohash: germanyGeohash,
+			lastLocationName: "日本东京",
+		};
+
+		state.addAccount(corruptedAccount);
+		state.switchChannel("scruff");
+		state.setActiveAccount("scruff", "acc-corrupted-tokyo");
+
+		// Should automatically detect and restore Tokyo coordinates (starting with xn76)
+		expect(state.currentAccount?.lastGeohash).toMatch(/^xn76/);
+		expect(mockSetPreferences).toHaveBeenCalledWith(
+			expect.objectContaining({
+				geohash: expect.stringMatching(/^xn76/),
+			}),
+		);
+	});
 });

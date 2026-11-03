@@ -4,7 +4,10 @@ import {
 	preferencesSnapshot,
 	setPreferences,
 } from "$lib/app-data/preferences.svelte";
-import { getGeohashLocationLabel } from "./location-helper";
+import {
+	getGeohashLocationLabel,
+	resolveGeohashForAccount,
+} from "./location-helper";
 import type { SocialChannelProvider, VerifyAccountResult } from "./provider";
 import { GrindrProvider } from "./providers/grindr-provider";
 import { JackdProvider } from "./providers/jackd-provider";
@@ -99,7 +102,6 @@ export class ChannelState {
 		}
 
 		this.activeChannel = channel;
-		this.saveToStorage();
 
 		// 恢复目标渠道（及当前激活账号）绑定的最后一次定位点
 		if (channel === "grindr") {
@@ -110,15 +112,24 @@ export class ChannelState {
 			}
 		} else {
 			const acc = this.currentAccount;
-			if (acc?.lastGeohash) {
-				setPreferences({ geohash: acc.lastGeohash }).catch(() => {});
-			} else if (acc && currentGeohash) {
-				acc.lastGeohash = currentGeohash;
-				acc.lastLocationName = getGeohashLocationLabel(currentGeohash);
-				this.saveToStorage();
+			if (acc) {
+				const resolvedGeohash = resolveGeohashForAccount(
+					acc,
+					currentGeohash,
+				);
+				if (resolvedGeohash) {
+					acc.lastGeohash = resolvedGeohash;
+					acc.lastLocationName =
+						acc.lastLocationName ||
+						getGeohashLocationLabel(resolvedGeohash);
+					setPreferences({ geohash: resolvedGeohash }).catch(
+						() => {},
+					);
+				}
 			}
 			void this.checkAndSyncActiveAccount(channel);
 		}
+		this.saveToStorage();
 	}
 
 	async checkAndSyncActiveAccount(
@@ -183,13 +194,15 @@ export class ChannelState {
 		const list = this.accounts[account.channel];
 		const existingIndex = list.findIndex((a) => a.id === account.id);
 
-		// 若新账号未指定定位点，默认继承当前定位
+		// 若新账号未指定定位点，尝试根据已有的名称解析或继承当前定位
 		if (!account.lastGeohash) {
 			const currentGeohash = preferencesSnapshot().geohash;
-			if (currentGeohash) {
-				account.lastGeohash = currentGeohash;
+			const resolved = resolveGeohashForAccount(account, currentGeohash);
+			if (resolved) {
+				account.lastGeohash = resolved;
 				account.lastLocationName =
-					getGeohashLocationLabel(currentGeohash);
+					account.lastLocationName ||
+					getGeohashLocationLabel(resolved);
 			}
 		}
 
@@ -223,26 +236,25 @@ export class ChannelState {
 
 	setActiveAccount(channel: SocialChannelType, accountId: string | null) {
 		this.activeAccountIds[channel] = accountId;
-		this.saveToStorage();
 
 		if (accountId && channel !== "grindr") {
 			const acc = this.accounts[channel].find((a) => a.id === accountId);
 			if (acc) {
-				if (acc.lastGeohash) {
-					setPreferences({ geohash: acc.lastGeohash }).catch(
+				const curr = preferencesSnapshot().geohash;
+				const resolvedGeohash = resolveGeohashForAccount(acc, curr);
+				if (resolvedGeohash) {
+					acc.lastGeohash = resolvedGeohash;
+					acc.lastLocationName =
+						acc.lastLocationName ||
+						getGeohashLocationLabel(resolvedGeohash);
+					setPreferences({ geohash: resolvedGeohash }).catch(
 						() => {},
 					);
-				} else {
-					const curr = preferencesSnapshot().geohash;
-					if (curr) {
-						acc.lastGeohash = curr;
-						acc.lastLocationName = getGeohashLocationLabel(curr);
-						this.saveToStorage();
-					}
 				}
 			}
 			void this.checkAndSyncActiveAccount(channel);
 		}
+		this.saveToStorage();
 	}
 
 	openAccountDialog(channel?: SocialChannelType) {
@@ -390,6 +402,13 @@ export class ChannelState {
 			);
 			if (savedGrindrGeohash) {
 				this.grindrLastGeohash = savedGrindrGeohash;
+			}
+
+			// 校验与自愈账号绑定的定位点：修复历史逻辑可能带来的异地覆盖污染
+			for (const ch of ["scruff", "jackd"] as const) {
+				for (const acc of this.accounts[ch]) {
+					resolveGeohashForAccount(acc);
+				}
 			}
 		} catch (e) {
 			console.warn("Failed to load channel state from storage:", e);

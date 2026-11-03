@@ -11,6 +11,7 @@
 	import { observeIntersection } from "$lib/util/observe-intersection";
 	import { channelGridState } from "../channel-grid-state.svelte";
 	import { channelState } from "../channel-state.svelte";
+	import { resolveGeohashForAccount } from "../location-helper";
 
 	let { geohash }: { geohash: string } = $props();
 
@@ -18,13 +19,18 @@
 		(channelState.accounts[channelState.activeChannel]?.length ?? 0) > 0,
 	);
 	const currentMeta = $derived(channelState.currentMeta);
+	const currentAccount = $derived(channelState.currentAccount);
+
+	// 优先使用当前激活账号绑定的独立定位点，避免切换账号时因全局偏好异步写入产生陈旧坐标竞态
+	const effectiveGeohash = $derived(
+		resolveGeohashForAccount(currentAccount, geohash),
+	);
 
 	$effect(() => {
-		if (!hasAccount) return;
-		channelState.recordCurrentLocation(geohash);
+		if (!hasAccount || !effectiveGeohash) return;
 		try {
-			const { lat, lon } = decodeGeohash(geohash);
-			void channelGridState.load(lat, lon, undefined, geohash);
+			const { lat, lon } = decodeGeohash(effectiveGeohash);
+			void channelGridState.load(lat, lon, undefined, effectiveGeohash);
 		} catch (e) {
 			console.error("Failed to decode geohash:", e);
 		}
@@ -35,9 +41,16 @@
 	}
 
 	function handleRetry() {
+		if (!effectiveGeohash) return;
 		try {
-			const { lat, lon } = decodeGeohash(geohash);
-			void channelGridState.load(lat, lon, undefined, geohash, true);
+			const { lat, lon } = decodeGeohash(effectiveGeohash);
+			void channelGridState.load(
+				lat,
+				lon,
+				undefined,
+				effectiveGeohash,
+				true,
+			);
 		} catch (e) {
 			console.error("Retry failed:", e);
 		}

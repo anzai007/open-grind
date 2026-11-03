@@ -21,7 +21,7 @@ export interface Country {
 
 export const COUNTRIES: Country[] = countriesRaw;
 
-function getDistanceKm(
+export function getDistanceKm(
 	lat1: number,
 	lon1: number,
 	lat2: number,
