@@ -54,18 +54,24 @@
 			const res = await channelState.sendInteraction(user.id);
 			if (res.success) {
 				interactionSent = true;
-				toast.success(
+				const toastId = toast.success(
 					res.message || `已向 ${user.displayName} 发送交互`,
-					{ duration: 2000 },
+					{ duration: 2000, closeButton: true },
 				);
+				setTimeout(() => toast.dismiss(toastId), 2000);
 			} else {
-				toast.error(res.message || "交互发送失败", { duration: 2000 });
+				const toastId = toast.error(res.message || "交互发送失败", {
+					duration: 2000,
+					closeButton: true,
+				});
+				setTimeout(() => toast.dismiss(toastId), 2500);
 			}
 		} catch (e) {
-			toast.error(
+			const toastId = toast.error(
 				`发送失败: ${e instanceof Error ? e.message : String(e)}`,
-				{ duration: 2000 },
+				{ duration: 2000, closeButton: true },
 			);
+			setTimeout(() => toast.dismiss(toastId), 2500);
 		} finally {
 			isInteracting = false;
 		}
@@ -96,18 +102,25 @@
 
 			const sent = await channelChatState.sendMessage(text);
 			if (sent) {
-				toast.success(`已向 ${user.displayName || "该用户"} 发送私信`, {
-					duration: 2000,
-				});
+				const toastId = toast.success(
+					`已向 ${user.displayName || "该用户"} 发送私信`,
+					{ duration: 2000, closeButton: true },
+				);
+				setTimeout(() => toast.dismiss(toastId), 2000);
 				quickMessage = "";
 			} else {
-				toast.error("私信发送失败，请稍后重试", { duration: 2000 });
+				const toastId = toast.error("私信发送失败，请稍后重试", {
+					duration: 2000,
+					closeButton: true,
+				});
+				setTimeout(() => toast.dismiss(toastId), 2500);
 			}
 		} catch (e) {
-			toast.error(
+			const toastId = toast.error(
 				`发送失败: ${e instanceof Error ? e.message : String(e)}`,
-				{ duration: 2000 },
+				{ duration: 2000, closeButton: true },
 			);
+			setTimeout(() => toast.dismiss(toastId), 2500);
 		} finally {
 			isSendingQuick = false;
 		}

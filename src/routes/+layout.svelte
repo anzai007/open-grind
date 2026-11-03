@@ -186,8 +186,8 @@
 			offset={toastOffset}
 			mobileOffset={toastOffset}
 			duration={2000}
-			toastOptions={{ class: "toast", duration: 2000 }}
-			expand
+			closeButton={true}
+			toastOptions={{ class: "toast", duration: 2000, closeButton: true }}
 		/>
 	</div>
 	{@render children?.()}

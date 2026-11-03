@@ -302,9 +302,11 @@ export class TemplateState {
 		if (channel !== "grindr") {
 			const account = channelState.currentAccount;
 			if (!account) {
-				toast.error("当前渠道尚未登录账号，请在右上角添加或选择账号", {
-					duration: 2000,
-				});
+				const toastId = toast.error(
+					"当前渠道尚未登录账号，请在右上角添加或选择账号",
+					{ duration: 2000, closeButton: true },
+				);
+				setTimeout(() => toast.dismiss(toastId), 2000);
 				channelState.openAccountDialog();
 				return { success: false, error: "未登录账号" };
 			}
@@ -312,10 +314,11 @@ export class TemplateState {
 
 		const pick = this.getRandomTemplate(channel, user);
 		if (!pick) {
-			toast.error(
+			const toastId = toast.error(
 				`当前 ${channelState.currentMeta.name} 渠道未配置或未启用私信模版，请先在右上角管理私信模版`,
-				{ duration: 2000 },
+				{ duration: 2000, closeButton: true },
 			);
+			setTimeout(() => toast.dismiss(toastId), 2000);
 			this.openDialog();
 			return { success: false, error: "未配置可用模版" };
 		}
@@ -345,15 +348,24 @@ export class TemplateState {
 				);
 			}
 
-			toast.success(
+			const toastId = toast.success(
 				`已向 ${user.displayName || "对方"} 发送快捷私信：\n"${text}"`,
-				{ duration: 2000 },
+				{ duration: 2000, closeButton: true },
 			);
+			setTimeout(() => {
+				toast.dismiss(toastId);
+			}, 2000);
 
 			return { success: true, text };
 		} catch (err) {
 			const errMsg = err instanceof Error ? err.message : String(err);
-			toast.error(`私信发送失败：${errMsg}`, { duration: 2000 });
+			const toastId = toast.error(`私信发送失败：${errMsg}`, {
+				duration: 2000,
+				closeButton: true,
+			});
+			setTimeout(() => {
+				toast.dismiss(toastId);
+			}, 2500);
 			return { success: false, error: errMsg };
 		} finally {
 			this.sendingUserIds.delete(userIdStr);
