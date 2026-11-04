@@ -46,6 +46,8 @@
 		}>
 	>([]);
 
+	const platform = $derived(channel === "grindr" ? "scruff" : channel);
+
 	async function togglePlatformPool() {
 		if (showPoolPicker) {
 			showPoolPicker = false;
@@ -56,9 +58,7 @@
 
 		isLoadingPool = true;
 		try {
-			const client = new RelayClient({
-				platform: channel === "jackd" ? "jackd" : "scruff",
-			});
+			const client = new RelayClient({ platform });
 			const res = await client.request<{
 				data?: {
 					items?: Array<{
@@ -110,11 +110,7 @@
 		if (!trimmed || channel === "grindr") return;
 
 		try {
-			const info = await queryPlatformAccount(
-				channel === "jackd" ? "jackd" : "scruff",
-				trimmed,
-				4000,
-			);
+			const info = await queryPlatformAccount(platform, trimmed, 4000);
 			if (info) {
 				platformUserId = info.platformUserId || null;
 				platformProxy = info.proxyUrl || null;
@@ -154,7 +150,7 @@
 			// 若尚未查询平台，尝试快速同步一次
 			if (!platformProxy && channel !== "grindr") {
 				const info = await queryPlatformAccount(
-					channel === "jackd" ? "jackd" : "scruff",
+					platform,
 					trimmedEmail,
 					3500,
 				);

@@ -25,7 +25,7 @@
 
 	type HttpStatusFilter = "all" | "2xx" | "4xx+" | "pending";
 	type WsDirectionFilter = "all" | "sent" | "received";
-	type ChannelFilter = "all" | "grindr" | "scruff" | "jackd";
+	type ChannelFilter = "all" | "grindr" | "scruff" | "jackd" | "heesay";
 
 	let searchInput = $state("");
 	let httpStatusFilter = $state<HttpStatusFilter>("all");
@@ -38,6 +38,7 @@
 		{ id: "grindr", label: "Grindr" },
 		{ id: "scruff", label: "Scruff" },
 		{ id: "jackd", label: "Jack'd" },
+		{ id: "heesay", label: "Heesay" },
 	];
 
 	const HTTP_FILTERS: Array<{ id: HttpStatusFilter; label: string }> = [
@@ -58,6 +59,10 @@
 		filter: ChannelFilter,
 	): boolean {
 		if (filter === "all") return true;
+		if (entry.channel) {
+			return entry.channel === filter;
+		}
+
 		const platformHdr = (
 			entry.requestHeaders?.["omni-platform"] ||
 			entry.requestHeaders?.["Omni-Platform"] ||
@@ -76,14 +81,21 @@
 			urlLower.includes("jackd") ||
 			pathLower.includes("jackd");
 
+		const isHeesay =
+			platformHdr === "heesay" ||
+			urlLower.includes("heesay") ||
+			pathLower.includes("heesay");
+
 		const isNonGrindr =
 			isScruff ||
 			isJackd ||
+			isHeesay ||
 			urlLower.includes("omni-") ||
 			pathLower.includes("omni-");
 
 		if (filter === "scruff") return isScruff;
 		if (filter === "jackd") return isJackd;
+		if (filter === "heesay") return isHeesay;
 		if (filter === "grindr") return !isNonGrindr;
 		return true;
 	}

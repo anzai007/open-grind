@@ -3,9 +3,13 @@
 		hydratePreferences,
 		preferencesSnapshot,
 	} from "$lib/app-data/preferences.svelte";
+	import { channelGridState } from "$lib/channel/channel-grid-state.svelte";
+	import { channelState } from "$lib/channel/channel-state.svelte";
+	import { resolveGeohashForAccount } from "$lib/channel/location-helper";
 	import DataRefreshControl from "$lib/components/feedback/DataRefreshControl.svelte";
 	import ScrollToTopButton from "$lib/components/shared/ScrollToTopButton.svelte";
 	import { gridState } from "$lib/grid/grid-state.svelte";
+	import { decodeGeohash } from "$lib/model/geohash";
 	import { restoreScrollOnce } from "$lib/util/scroll-restore.svelte";
 	import { revealedGridScrollTop } from "./grid-reveal";
 	import Grid from "./Grid.svelte";
@@ -16,6 +20,41 @@
 	const geohash = $derived(preferencesSnapshot().geohash);
 
 	let gridContainer: HTMLElement | null = $state(null);
+
+	const isGrindr = $derived(channelState.activeChannel === "grindr");
+	const isRefreshing = $derived(
+		isGrindr ? gridState.refreshing : channelGridState.loading,
+	);
+	const isLoading = $derived(
+		isGrindr ? gridState.loading : channelGridState.loading,
+	);
+	const hasError = $derived(
+		isGrindr ? Boolean(gridState.error) : Boolean(channelGridState.error),
+	);
+
+	function handleRefresh() {
+		if (isGrindr) {
+			void gridState.refresh({ keepLoadedPages: false });
+		} else {
+			const targetGeohash = resolveGeohashForAccount(
+				channelState.currentAccount,
+				geohash || "",
+			);
+			if (!targetGeohash) return;
+			try {
+				const { lat, lon } = decodeGeohash(targetGeohash);
+				void channelGridState.load(
+					lat,
+					lon,
+					undefined,
+					targetGeohash,
+					true,
+				);
+			} catch (e) {
+				console.error("Refresh channel grid error:", e);
+			}
+		}
+	}
 
 	restoreScrollOnce({
 		container: () => gridContainer,
@@ -49,13 +88,12 @@
 	{:else}
 		<main class="screen-nav-host">
 			<TopBar />
-			{#if !gridState.loading && !gridState.error}
+			{#if !isLoading && !hasError}
 				<DataRefreshControl
 					container={gridContainer}
-					updating={gridState.refreshing}
+					updating={isRefreshing}
 					position="top"
-					onrefresh={() =>
-						void gridState.refresh({ keepLoadedPages: false })}
+					onrefresh={handleRefresh}
 				/>
 			{/if}
 			<div

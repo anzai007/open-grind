@@ -60,6 +60,20 @@ export const DEFAULT_TEMPLATE_GROUPS: DmTemplateGroup[] = [
 		groupName: "Jack'd 英语日常打招呼",
 		languageCode: "en",
 	},
+
+	// Heesay
+	{
+		channel: "heesay",
+		groupCode: "heesay_casual_greetings_zh",
+		groupName: "Heesay 中文日常打招呼",
+		languageCode: "zh-CN",
+	},
+	{
+		channel: "heesay",
+		groupCode: "heesay_casual_greetings_en",
+		groupName: "Heesay 英语日常打招呼",
+		languageCode: "en",
+	},
 ];
 
 export const DEFAULT_TEMPLATES: DmTemplate[] = [
@@ -435,5 +449,69 @@ export const DEFAULT_TEMPLATES: DmTemplate[] = [
 		content: "Hi，刚上线刷到，有空聊聊天吗？",
 		enabled: true,
 		createdAt: 1700000063000,
+	},
+
+	// Heesay 中文日常打招呼
+	{
+		id: "htpl_zh_01",
+		channel: "heesay",
+		groupCode: "heesay_casual_greetings_zh",
+		groupName: "Heesay 中文日常打招呼",
+		title: "中文招呼 01",
+		content: "哈喽，看到你也在附近，打个招呼 😊",
+		enabled: true,
+		createdAt: 1700000070000,
+	},
+	{
+		id: "htpl_zh_02",
+		channel: "heesay",
+		groupCode: "heesay_casual_greetings_zh",
+		groupName: "Heesay 中文日常打招呼",
+		title: "中文招呼 02",
+		content: "嗨，照片挺帅的，方便认识一下吗？",
+		enabled: true,
+		createdAt: 1700000071000,
+	},
+	{
+		id: "htpl_zh_03",
+		channel: "heesay",
+		groupCode: "heesay_casual_greetings_zh",
+		groupName: "Heesay 中文日常打招呼",
+		title: "中文招呼 03",
+		content: "Hi，今天过得怎么样？",
+		enabled: true,
+		createdAt: 1700000072000,
+	},
+	{
+		id: "htpl_zh_04",
+		channel: "heesay",
+		groupCode: "heesay_casual_greetings_zh",
+		groupName: "Heesay 中文日常打招呼",
+		title: "中文招呼 04",
+		content: "刚上线刷到你，有空聊聊天吗？",
+		enabled: true,
+		createdAt: 1700000073000,
+	},
+
+	// Heesay 英语日常打招呼
+	{
+		id: "htpl_en_01",
+		channel: "heesay",
+		groupCode: "heesay_casual_greetings_en",
+		groupName: "Heesay 英语日常打招呼",
+		title: "English Greeting 01",
+		content: "Hey, saw your profile nearby! How's your day going?",
+		enabled: true,
+		createdAt: 1700000074000,
+	},
+	{
+		id: "htpl_en_02",
+		channel: "heesay",
+		groupCode: "heesay_casual_greetings_en",
+		groupName: "Heesay 英语日常打招呼",
+		title: "English Greeting 02",
+		content: "Hi there! Nice photos 😊",
+		enabled: true,
+		createdAt: 1700000075000,
 	},
 ];

@@ -4,7 +4,7 @@ import { networkLoggerState } from "$lib/network-logger/network-logger-state.sve
 import type { ChannelAccount } from "../types";
 
 export interface RelayClientOptions {
-	platform: "scruff" | "jackd";
+	platform: "scruff" | "jackd" | "heesay";
 	relayBaseUrl?: string;
 	relayKey?: string;
 }
@@ -71,7 +71,7 @@ function toBrowserSafeUrl(url: string): string {
 }
 
 export class RelayClient {
-	readonly platform: "scruff" | "jackd";
+	readonly platform: "scruff" | "jackd" | "heesay";
 	readonly relayBaseUrl: string;
 	readonly relayKey: string;
 
@@ -137,6 +137,7 @@ export class RelayClient {
 
 		const logEntry = networkLoggerState.startHttp({
 			body: options.body,
+			channel: this.platform,
 			headers: {
 				...cleanHeaders,
 				"omni-key": "******", // mask in logger for safety
@@ -201,7 +202,10 @@ export class RelayClient {
 			const isSuccess =
 				resStatus >= 200 &&
 				resStatus < 300 &&
-				(recordData?.ret === undefined || recordData.ret === true);
+				(recordData?.ret === undefined || recordData.ret === true) &&
+				(recordData?.code === undefined ||
+					recordData.code === 200 ||
+					recordData.code === 0);
 
 			if (isSuccess) {
 				networkLoggerState.completeHttp(logEntry.id, {

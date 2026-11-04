@@ -42,6 +42,27 @@
 			>
 				<div class="flex items-center justify-between gap-1">
 					<div class="flex min-w-0 items-center gap-1.5">
+						<!-- Channel badge -->
+						{#if req.channel}
+							<span
+								class={[
+									"rounded px-1.5 py-0.5 text-3xs font-semibold tracking-wider uppercase",
+									{
+										"bg-amber-500/15 text-amber-600 dark:text-amber-400":
+											req.channel === "grindr",
+										"bg-blue-500/15 text-blue-600 dark:text-blue-400":
+											req.channel === "scruff",
+										"bg-orange-500/15 text-orange-600 dark:text-orange-400":
+											req.channel === "jackd",
+										"bg-pink-500/15 text-pink-600 dark:text-pink-400":
+											req.channel === "heesay",
+									},
+								]}
+							>
+								{req.channel}
+							</span>
+						{/if}
+
 						<!-- Method badge -->
 						<span
 							class={[

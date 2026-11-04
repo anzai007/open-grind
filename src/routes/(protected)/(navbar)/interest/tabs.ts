@@ -5,7 +5,13 @@ export const INTEREST_TABS = [
 
 export function getInterestTabs(channel: string = "grindr") {
 	const secondTabLabel =
-		channel === "scruff" ? "Woof" : channel === "jackd" ? "Wave" : "Taps";
+		channel === "scruff"
+			? "Woof"
+			: channel === "jackd"
+				? "Wave"
+				: channel === "heesay"
+					? "SayHi"
+					: "Taps";
 	return [
 		{ href: "/interest/views", label: "Views" },
 		{ href: "/interest/taps", label: secondTabLabel },

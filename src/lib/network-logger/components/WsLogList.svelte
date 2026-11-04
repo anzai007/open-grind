@@ -40,6 +40,25 @@
 			>
 				<div class="flex items-center justify-between gap-1">
 					<div class="flex min-w-0 items-center gap-1.5">
+						{#if ws.channel}
+							<span
+								class={[
+									"rounded px-1.5 py-0.5 text-3xs font-semibold tracking-wider uppercase",
+									{
+										"bg-amber-500/15 text-amber-600 dark:text-amber-400":
+											ws.channel === "grindr",
+										"bg-blue-500/15 text-blue-600 dark:text-blue-400":
+											ws.channel === "scruff",
+										"bg-orange-500/15 text-orange-600 dark:text-orange-400":
+											ws.channel === "jackd",
+										"bg-pink-500/15 text-pink-600 dark:text-pink-400":
+											ws.channel === "heesay",
+									},
+								]}
+							>
+								{ws.channel}
+							</span>
+						{/if}
 						{#if ws.direction === "sent"}
 							<span
 								class="flex items-center gap-0.5 rounded bg-sky-500/15 px-1.5 py-0.5 font-mono text-3xs font-medium text-sky-500"

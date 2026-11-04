@@ -340,4 +340,69 @@ describe("ChannelChatState", () => {
 			"user-mid",
 		);
 	});
+
+	it("does not bump old conversation to the top when selected", async () => {
+		const currentProvider = channelState.currentProvider;
+		vi.spyOn(currentProvider, "getConversations").mockResolvedValue({
+			hasNext: false,
+			items: [
+				{
+					channel: "scruff",
+					conversationId: "user-new",
+					lastMessageText: "Recent message",
+					lastMessageTimestamp: 5000,
+					targetUserId: "user-new",
+					targetUserName: "Recent Friend",
+					unreadCount: 0,
+				},
+				{
+					channel: "scruff",
+					conversationId: "user-old",
+					lastMessageText: "Old message",
+					lastMessageTimestamp: 1000,
+					targetUserId: "user-old",
+					targetUserName: "Old Friend",
+					unreadCount: 1,
+				},
+			],
+			offset: 0,
+			total: 2,
+		});
+
+		await channelChatState.loadConversations();
+		expect(channelChatState.conversations[0]!.conversationId).toBe(
+			"user-new",
+		);
+		expect(channelChatState.conversations[1]!.conversationId).toBe(
+			"user-old",
+		);
+
+		// Mock getMessages returning the old message history
+		vi.spyOn(currentProvider, "getMessages").mockResolvedValue([
+			{
+				channel: "scruff",
+				conversationId: "user-old",
+				id: "m_old_1",
+				isFromMe: false,
+				recipientId: "me",
+				senderId: "user-old",
+				status: "delivered",
+				text: "Old message from days ago",
+				timestamp: 1000,
+			},
+		]);
+
+		// When clicking/selecting user-old, it should mark read but NOT jump to the top
+		await channelChatState.selectConversation("user-old");
+
+		expect(channelChatState.conversations[0]!.conversationId).toBe(
+			"user-new",
+		);
+		expect(channelChatState.conversations[1]!.conversationId).toBe(
+			"user-old",
+		);
+		expect(channelChatState.conversations[1]!.lastMessageTimestamp).toBe(
+			1000,
+		);
+	});
 });

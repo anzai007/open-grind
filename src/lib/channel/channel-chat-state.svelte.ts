@@ -239,7 +239,8 @@ export class ChannelChatState {
 		if (
 			channel !== "grindr" &&
 			channel !== "scruff" &&
-			channel !== "jackd"
+			channel !== "jackd" &&
+			channel !== "heesay"
 		) {
 			return;
 		}
@@ -266,9 +267,15 @@ export class ChannelChatState {
 			(typeof rawRecord.text === "string" ? rawRecord.text : "") ||
 			(typeof rawRecord.content === "string" ? rawRecord.content : "") ||
 			(data.attachment ? "[媒体附件]" : "");
-		const timestamp = data.senderTime
-			? Date.parse(data.senderTime)
-			: Date.now();
+
+		// 严格过滤：若报文既无消息文本也无媒体附件（例如单纯的消息送达回执、已读状态更新等），绝不作为最新消息更新会话列表排序
+		if (!content.trim() && !data.attachment) {
+			return;
+		}
+
+		const rawSenderTime = data.senderTime;
+		const parsedTime = rawSenderTime ? Date.parse(rawSenderTime) : NaN;
+		const timestamp = Number.isFinite(parsedTime) ? parsedTime : Date.now();
 		const messageId = String(data.messageId);
 
 		// 1. 存入消息流
@@ -474,9 +481,30 @@ export class ChannelChatState {
 						? 0
 						: s.unreadCount;
 
+				const msgScope = this.getMessageScopeKey(s.conversationId);
+				const cachedMsgs = this.messagesStore.get(msgScope);
+				const localTrueLastMsgTime =
+					cachedMsgs && cachedMsgs.length > 0
+						? cachedMsgs[cachedMsgs.length - 1]?.timestamp
+						: undefined;
+
+				// 自愈纠错：如果本地缓存中的 lastMessageTimestamp 大于本地实际缓存消息的最新一条 timestamp，
+				// 说明曾因点击会话误触发 Date.now() 导致时间被污染，自动纠正回服务器真实时间戳或实际消息时间戳
+				let correctedLocalTimestamp = local?.lastMessageTimestamp;
+				if (
+					local &&
+					localTrueLastMsgTime !== undefined &&
+					(local.lastMessageTimestamp ?? 0) > localTrueLastMsgTime
+				) {
+					correctedLocalTimestamp = Math.max(
+						s.lastMessageTimestamp ?? 0,
+						localTrueLastMsgTime,
+					);
+				}
+
 				const hasNewerLocal =
 					Boolean(local) &&
-					(local!.lastMessageTimestamp ?? 0) >
+					(correctedLocalTimestamp ?? 0) >
 						(s.lastMessageTimestamp ?? 0);
 
 				const lastMessageText = hasNewerLocal
@@ -484,10 +512,8 @@ export class ChannelChatState {
 					: s.lastMessageText || local?.lastMessageText || "";
 
 				const lastMessageTimestamp = hasNewerLocal
-					? local!.lastMessageTimestamp
-					: s.lastMessageTimestamp ||
-						local?.lastMessageTimestamp ||
-						0;
+					? correctedLocalTimestamp!
+					: s.lastMessageTimestamp || correctedLocalTimestamp || 0;
 
 				return {
 					...s,
@@ -647,21 +673,19 @@ export class ChannelChatState {
 			this.saveToStorage();
 
 			const lastMsg = mergedList[mergedList.length - 1];
-			if (lastMsg?.text) {
+			if (lastMsg) {
 				const conv = this.conversations.find(
 					(c) =>
 						c.conversationId === conversationId ||
 						c.targetUserId === conversationId ||
 						c.conversationId.includes(conversationId),
 				);
-				if (
-					conv &&
-					(!conv.lastMessageText ||
-						conv.lastMessageTimestamp <= lastMsg.timestamp)
-				) {
+				if (conv) {
+					// 严格传入该条真实消息的真实发送时间戳，绝不擅自使用 Date.now()，杜绝因点击会话将老消息顶到最前
 					this.updateConversationLastMessage(
 						conv.conversationId,
-						lastMsg.text,
+						lastMsg.text || conv.lastMessageText,
+						lastMsg.timestamp,
 					);
 				}
 			}
@@ -709,7 +733,11 @@ export class ChannelChatState {
 		this.isSending = true;
 
 		// 乐观更新会话列表最后消息与时间，并重新倒序排列
-		this.updateConversationLastMessage(this.activeConversationId, trimmed);
+		this.updateConversationLastMessage(
+			this.activeConversationId,
+			trimmed,
+			optimisticMsg.timestamp,
+		);
 
 		try {
 			const provider = channelState.currentProvider;
@@ -913,10 +941,13 @@ export class ChannelChatState {
 		return conv;
 	}
 
-	updateConversationLastMessage(conversationId: string, text: string): void {
+	updateConversationLastMessage(
+		conversationId: string,
+		text: string,
+		timestamp?: number,
+	): void {
 		const partnerId = this.normalizePartnerId(conversationId);
 		let updated = false;
-		const now = Date.now();
 		const next = this.conversations.map((c) => {
 			if (
 				c.conversationId === conversationId ||
@@ -925,10 +956,17 @@ export class ChannelChatState {
 				c.conversationId.includes(partnerId)
 			) {
 				updated = true;
+				// 严格使用该条真实消息的发送时间戳，绝不擅自使用 Date.now()，避免点击会话或已读回执将老消息置顶
+				const msgTime =
+					timestamp !== undefined &&
+					Number.isFinite(timestamp) &&
+					timestamp > 0
+						? timestamp
+						: c.lastMessageTimestamp || Date.now();
 				return {
 					...c,
 					lastMessageText: text,
-					lastMessageTimestamp: now,
+					lastMessageTimestamp: msgTime,
 				};
 			}
 			return c;

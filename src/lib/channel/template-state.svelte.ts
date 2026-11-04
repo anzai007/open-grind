@@ -19,6 +19,7 @@ export class TemplateState {
 		grindr: "grindr_first_touch_zh_cn_greeting",
 		scruff: "scruff_casual_greetings_en",
 		jackd: "jackd_korean_casual_greetings",
+		heesay: "heesay_casual_greetings_zh",
 	});
 
 	isDialogOpen = $state(false);
@@ -242,6 +243,7 @@ export class TemplateState {
 				grindr: "grindr_first_touch_zh_cn_greeting",
 				scruff: "scruff_casual_greetings_en",
 				jackd: "jackd_korean_casual_greetings",
+				heesay: "heesay_casual_greetings_zh",
 			};
 		}
 

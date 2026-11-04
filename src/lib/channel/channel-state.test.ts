@@ -43,6 +43,11 @@ describe("ChannelState", () => {
 		expect(state.activeChannel).toBe("jackd");
 		expect(state.currentMeta.name).toBe("Jack'd");
 		expect(state.currentMeta.interactionName).toBe("Wave");
+
+		state.switchChannel("heesay");
+		expect(state.activeChannel).toBe("heesay");
+		expect(state.currentMeta.name).toBe("Heesay");
+		expect(state.currentMeta.interactionName).toBe("SayHi");
 	});
 
 	it("adds and manages channel accounts", () => {

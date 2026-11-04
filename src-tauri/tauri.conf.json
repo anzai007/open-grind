@@ -27,7 +27,7 @@
 			}
 		],
 		"security": {
-			"csp": "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'self' 'unsafe-inline'; img-src 'self' data: ogmedia: http://ogmedia.localhost https://ogmedia.localhost https://tile.openstreetmap.org https://cdn-profilemedia.scruffapp.com; media-src 'self' blob: ogmedia: http://ogmedia.localhost https://ogmedia.localhost https://cdn-profilemedia.scruffapp.com; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost https://omni-relay.toonhub.top wss://omni-relay.toonhub.top https://omni-api.toonhub.top https://cdn-profilemedia.scruffapp.com; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'"
+			"csp": "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'self' 'unsafe-inline'; img-src 'self' data: ogmedia: http://ogmedia.localhost https://ogmedia.localhost https://tile.openstreetmap.org https://cdn-profilemedia.scruffapp.com https://*.bldimg.com; media-src 'self' blob: ogmedia: http://ogmedia.localhost https://ogmedia.localhost https://cdn-profilemedia.scruffapp.com https://*.bldimg.com; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost https://omni-relay.toonhub.top wss://omni-relay.toonhub.top https://omni-api.toonhub.top https://cdn-profilemedia.scruffapp.com https://*.bldimg.com; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'"
 		}
 	},
 	"bundle": {

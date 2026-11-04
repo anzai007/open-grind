@@ -1,4 +1,4 @@
-export type SocialChannelType = "grindr" | "scruff" | "jackd";
+export type SocialChannelType = "grindr" | "scruff" | "jackd" | "heesay";
 
 export interface ChannelMeta {
 	type: SocialChannelType;
@@ -6,7 +6,7 @@ export interface ChannelMeta {
 	shortName: string;
 	brandColor: string;
 	brandForeground: string;
-	interactionName: string; // Grindr: Tap, Scruff: Woof, Jack'd: Wave
+	interactionName: string; // Grindr: Tap, Scruff: Woof, Jack'd: Wave, Heesay: SayHi
 	iconName: string;
 }
 
@@ -37,6 +37,15 @@ export const CHANNEL_METAS: Record<SocialChannelType, ChannelMeta> = {
 		brandForeground: "#ffffff",
 		interactionName: "Wave",
 		iconName: "HandWaving",
+	},
+	heesay: {
+		type: "heesay",
+		name: "Heesay",
+		shortName: "Heesay",
+		brandColor: "#0066ff",
+		brandForeground: "#ffffff",
+		interactionName: "SayHi",
+		iconName: "ChatCircleDots",
 	},
 };
 
@@ -131,7 +140,7 @@ export interface UniversalMessage {
 
 export interface UniversalInteractionResult {
 	success: boolean;
-	interactionType: "tap" | "woof" | "wave";
+	interactionType: "tap" | "woof" | "wave" | "say_hi" | "hi";
 	message?: string;
 	targetUserId: string;
 }

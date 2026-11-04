@@ -62,7 +62,7 @@
 			class="flex flex-1 flex-col overflow-hidden"
 		>
 			<div class="border-b border-border/60 bg-muted/20 px-5 pt-2">
-				<Tabs.List class="grid h-9 w-full grid-cols-4">
+				<Tabs.List class="grid h-9 w-full grid-cols-5">
 					<Tabs.Trigger
 						value="grindr"
 						class="text-xs data-[state=active]:font-semibold"
@@ -89,6 +89,15 @@
 							class="mr-1.5 inline-block size-2 rounded-full bg-[#ff6600]"
 						></span>
 						Jack'd
+					</Tabs.Trigger>
+					<Tabs.Trigger
+						value="heesay"
+						class="text-xs data-[state=active]:font-semibold"
+					>
+						<span
+							class="mr-1.5 inline-block size-2 rounded-full bg-[#0066ff]"
+						></span>
+						Heesay
 					</Tabs.Trigger>
 					<Tabs.Trigger
 						value="relay"
@@ -211,6 +220,38 @@
 
 					<ChannelAccountList channel="jackd" />
 					<AddAccountForm channel="jackd" />
+				</Tabs.Content>
+
+				<Tabs.Content value="heesay" class="mt-0 flex flex-col gap-4">
+					<div class="flex items-center justify-between">
+						<div class="flex items-center gap-2">
+							<span class="text-sm font-semibold"
+								>Heesay 账号池</span
+							>
+							{#if channelState.activeChannel === "heesay"}
+								<Badge
+									variant="default"
+									class="h-4.5 bg-[#0066ff] px-1.5 text-[10px] text-white"
+								>
+									当前激活渠道
+								</Badge>
+							{/if}
+						</div>
+						{#if channelState.activeChannel !== "heesay"}
+							<Button
+								size="sm"
+								variant="outline"
+								onclick={() =>
+									handleSwitchActiveChannel("heesay")}
+								class="h-7 gap-1 px-2.5 text-xs"
+							>
+								<span>切换为 Heesay 渠道</span>
+							</Button>
+						{/if}
+					</div>
+
+					<ChannelAccountList channel="heesay" />
+					<AddAccountForm channel="heesay" />
 				</Tabs.Content>
 
 				<Tabs.Content value="relay" class="mt-0">

@@ -90,7 +90,12 @@
 		selectedGroupCode = active?.groupCode || "";
 	}
 
-	const CHANNELS: SocialChannelType[] = ["grindr", "scruff", "jackd"];
+	const CHANNELS: SocialChannelType[] = [
+		"grindr",
+		"scruff",
+		"jackd",
+		"heesay",
+	];
 </script>
 
 <Dialog.Root

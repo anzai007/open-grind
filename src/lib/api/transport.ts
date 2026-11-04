@@ -219,6 +219,7 @@ export async function uploadFileRest(
 	const method = "POST";
 	const requestInfo = { method, path };
 	const logEntry = networkLoggerState.startHttp({
+		channel: "grindr",
 		method,
 		url: path,
 		body: {
@@ -283,6 +284,7 @@ export async function fetchRest(
 	const method = options.method ?? "GET";
 	const requestInfo = { method, path, body: options.body };
 	const logEntry = networkLoggerState.startHttp({
+		channel: "grindr",
 		method,
 		url: path,
 		body: options.body,

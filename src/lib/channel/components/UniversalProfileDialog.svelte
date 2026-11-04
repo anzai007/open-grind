@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
+	import ChatCircleDotsIcon from "phosphor-svelte/lib/ChatCircleDotsIcon";
 	import ChatTeardropTextIcon from "phosphor-svelte/lib/ChatTeardropTextIcon";
 	import CheckIcon from "phosphor-svelte/lib/CheckIcon";
 	import FireIcon from "phosphor-svelte/lib/FireIcon";
@@ -319,6 +320,12 @@
 						{:else if channelState.activeChannel === "jackd"}
 							<HandWavingIcon class="size-3.5" weight="bold" />
 							<span>打招呼 (Wave)</span>
+						{:else if channelState.activeChannel === "heesay"}
+							<ChatCircleDotsIcon
+								class="size-3.5"
+								weight="bold"
+							/>
+							<span>打招呼 (Say Hi)</span>
 						{:else}
 							<FireIcon class="size-3.5" weight="bold" />
 							<span>Tap</span>

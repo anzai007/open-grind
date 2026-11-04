@@ -36,12 +36,15 @@ export type RelayWsStatus = "disconnected" | "connecting" | "connected";
 
 export class RelayImWsClient {
 	status = $state<RelayWsStatus>("disconnected");
-	activePlatform = $state<"grindr" | "scruff" | "jackd" | null>(null);
+	activePlatform = $state<"grindr" | "scruff" | "jackd" | "heesay" | null>(
+		null,
+	);
 	activeProfileId = $state<string | null>(null);
 	activeAccountIdentifier = $state<string | null>(null);
 
 	private socket: WebSocket | null = null;
-	private currentPlatform: "grindr" | "scruff" | "jackd" | null = null;
+	private currentPlatform: "grindr" | "scruff" | "jackd" | "heesay" | null =
+		null;
 	private currentAccount: ChannelAccount | null = null;
 	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	private reconnectAttempts = 0;
@@ -71,7 +74,7 @@ export class RelayImWsClient {
 	}
 
 	connect(
-		platform: "grindr" | "scruff" | "jackd",
+		platform: "grindr" | "scruff" | "jackd" | "heesay",
 		account?: ChannelAccount,
 	): void {
 		if (
@@ -167,6 +170,7 @@ export class RelayImWsClient {
 		this.status = "connecting";
 
 		networkLoggerState.addWs({
+			channel: platform,
 			direction: "status",
 			type: `[IM WS] Connecting to ${platform}`,
 			payload: {
@@ -184,6 +188,7 @@ export class RelayImWsClient {
 				this.reconnectAttempts = 0;
 
 				networkLoggerState.addWs({
+					channel: platform,
 					direction: "status",
 					type: `[IM WS] Connected (${platform})`,
 					payload: {
@@ -213,6 +218,7 @@ export class RelayImWsClient {
 
 					for (const packet of packets) {
 						networkLoggerState.addWs({
+							channel: platform,
 							direction: "received",
 							type: `[IM WS] ${packet.type || "notify"}`,
 							ref: packet.requestId
@@ -260,6 +266,7 @@ export class RelayImWsClient {
 			ws.onerror = (e) => {
 				if (this.socket !== ws) return;
 				networkLoggerState.addWs({
+					channel: platform,
 					direction: "status",
 					type: `[IM WS] Error (${platform})`,
 					payload: {
@@ -275,6 +282,7 @@ export class RelayImWsClient {
 				this.socket = null;
 
 				networkLoggerState.addWs({
+					channel: platform,
 					direction: "status",
 					type: `[IM WS] Closed (code: ${event.code}, reason: ${event.reason || "none"})`,
 				});
@@ -336,6 +344,7 @@ export class RelayImWsClient {
 
 		const json = JSON.stringify(packet);
 		networkLoggerState.addWs({
+			channel: this.activePlatform ?? undefined,
 			direction: "sent",
 			type: `[IM WS] ${packet.type}`,
 			ref: String(reqId),
@@ -388,7 +397,7 @@ export class RelayImWsClient {
 		sender: string;
 		target: string;
 		text: string;
-		channel: "grindr" | "scruff" | "jackd";
+		channel: "grindr" | "scruff" | "jackd" | "heesay";
 		conversationId?: string;
 		token?: string;
 	}): Promise<RelayMessageSendResult> {
