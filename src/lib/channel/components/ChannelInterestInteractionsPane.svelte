@@ -282,7 +282,7 @@
 										>
 											{#if isJackd}
 												👋
-											{:else if channelState.activeChannel === "heesay"}
+											{:else if channelState.activeChannel === "heesay" || channelState.activeChannel === "sub"}
 												💬
 											{:else}
 												🐾
@@ -345,7 +345,7 @@
 									>
 										{#if isJackd}
 											<HandWavingIcon class="size-3.5" />
-										{:else if channelState.activeChannel === "heesay"}
+										{:else if channelState.activeChannel === "heesay" || channelState.activeChannel === "sub"}
 											<ChatCircleDotsIcon
 												class="size-3.5"
 											/>

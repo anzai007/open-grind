@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ArrowCounterClockwiseIcon from "phosphor-svelte/lib/ArrowCounterClockwiseIcon";
 	import ChatCircleDotsIcon from "phosphor-svelte/lib/ChatCircleDotsIcon";
+	import PaperPlaneRightIcon from "phosphor-svelte/lib/PaperPlaneRightIcon";
 	import PlusIcon from "phosphor-svelte/lib/PlusIcon";
 	import XIcon from "phosphor-svelte/lib/XIcon";
 	import { toast } from "svelte-sonner";
@@ -95,6 +96,7 @@
 		"scruff",
 		"jackd",
 		"heesay",
+		"sub",
 	];
 </script>
 
@@ -171,16 +173,32 @@
 				{/each}
 			</div>
 
-			<Button
-				variant="outline"
-				size="sm"
-				onclick={handleResetDefaults}
-				class="h-7 gap-1 px-2.5 text-xs text-muted-foreground hover:text-foreground"
-				title="从 ai-growth 数据库同步/重置为默认官方模版"
-			>
-				<ArrowCounterClockwiseIcon class="size-3.5" />
-				<span>读取 ai-growth 默认</span>
-			</Button>
+			<div class="flex items-center gap-1.5">
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={() =>
+						templateState.openDirectDmDialog({
+							channel: selectedChannel,
+						})}
+					class="h-7 gap-1 px-2.5 text-xs text-primary hover:text-primary"
+					title="测试向指定用户快捷发送私信"
+				>
+					<PaperPlaneRightIcon class="size-3.5" weight="fill" />
+					<span>快捷私信指定</span>
+				</Button>
+
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={handleResetDefaults}
+					class="h-7 gap-1 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+					title="从 ai-growth 数据库同步/重置为默认官方模版"
+				>
+					<ArrowCounterClockwiseIcon class="size-3.5" />
+					<span>读取 ai-growth 默认</span>
+				</Button>
+			</div>
 		</div>
 
 		<!-- 主体内容：左右分栏 (左侧模版组列表，右侧模版列表) -->

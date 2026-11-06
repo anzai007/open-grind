@@ -3,6 +3,7 @@
 
 	import ChannelAccountsDialog from "$lib/channel/components/ChannelAccountsDialog.svelte";
 	import DmTemplateManagerDialog from "$lib/channel/components/DmTemplateManagerDialog.svelte";
+	import QuickDirectDmDialog from "$lib/channel/components/QuickDirectDmDialog.svelte";
 	import UniversalProfileDialog from "$lib/channel/components/UniversalProfileDialog.svelte";
 	import CommandCenter from "$lib/components/command-center/CommandCenter.svelte";
 	import MediaDropOverlay from "$lib/components/shared/MediaDropOverlay.svelte";
@@ -36,4 +37,5 @@
 <NetworkLoggerDialog />
 <ChannelAccountsDialog />
 <DmTemplateManagerDialog />
+<QuickDirectDmDialog />
 <UniversalProfileDialog />

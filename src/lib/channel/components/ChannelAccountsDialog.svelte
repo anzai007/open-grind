@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CheckCircleIcon from "phosphor-svelte/lib/CheckCircleIcon";
 	import GearSixIcon from "phosphor-svelte/lib/GearSixIcon";
+	import PaperPlaneRightIcon from "phosphor-svelte/lib/PaperPlaneRightIcon";
 	import UserCircleIcon from "phosphor-svelte/lib/UserCircleIcon";
 	import XIcon from "phosphor-svelte/lib/XIcon";
 
@@ -9,6 +10,7 @@
 	import * as Dialog from "$lib/components/ui/dialog";
 	import * as Tabs from "$lib/components/ui/tabs";
 	import { channelState } from "../channel-state.svelte";
+	import { templateState } from "../template-state.svelte";
 	import type { SocialChannelType } from "../types";
 	import AddAccountForm from "./AddAccountForm.svelte";
 	import ChannelAccountList from "./ChannelAccountList.svelte";
@@ -100,6 +102,15 @@
 						Heesay
 					</Tabs.Trigger>
 					<Tabs.Trigger
+						value="sub"
+						class="text-xs data-[state=active]:font-semibold"
+					>
+						<span
+							class="mr-1.5 inline-block size-2 rounded-full bg-[#7c3aed]"
+						></span>
+						Sub
+					</Tabs.Trigger>
+					<Tabs.Trigger
 						value="relay"
 						class="text-xs data-[state=active]:font-semibold"
 					>
@@ -141,20 +152,37 @@
 							</div>
 						</div>
 
-						{#if channelState.activeChannel !== "grindr"}
+						<div class="flex items-center gap-2">
 							<Button
 								size="sm"
 								variant="outline"
 								onclick={() =>
-									handleSwitchActiveChannel("grindr")}
+									templateState.openDirectDmDialog({
+										channel: "grindr",
+									})}
 								class="h-8 gap-1.5 text-xs"
 							>
-								<CheckCircleIcon
+								<PaperPlaneRightIcon
 									class="size-3.5 text-primary"
 								/>
-								<span>切换为主渠道</span>
+								<span>快捷私信指定</span>
 							</Button>
-						{/if}
+
+							{#if channelState.activeChannel !== "grindr"}
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={() =>
+										handleSwitchActiveChannel("grindr")}
+									class="h-8 gap-1.5 text-xs"
+								>
+									<CheckCircleIcon
+										class="size-3.5 text-primary"
+									/>
+									<span>切换为主渠道</span>
+								</Button>
+							{/if}
+						</div>
 					</div>
 				</Tabs.Content>
 
@@ -173,17 +201,33 @@
 								</Badge>
 							{/if}
 						</div>
-						{#if channelState.activeChannel !== "scruff"}
+						<div class="flex items-center gap-2">
 							<Button
 								size="sm"
 								variant="outline"
 								onclick={() =>
-									handleSwitchActiveChannel("scruff")}
+									templateState.openDirectDmDialog({
+										channel: "scruff",
+									})}
 								class="h-7 gap-1 px-2.5 text-xs"
 							>
-								<span>切换为 Scruff 渠道</span>
+								<PaperPlaneRightIcon
+									class="size-3.5 text-primary"
+								/>
+								<span>快捷私信指定</span>
 							</Button>
-						{/if}
+							{#if channelState.activeChannel !== "scruff"}
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={() =>
+										handleSwitchActiveChannel("scruff")}
+									class="h-7 gap-1 px-2.5 text-xs"
+								>
+									<span>切换为 Scruff 渠道</span>
+								</Button>
+							{/if}
+						</div>
 					</div>
 
 					<ChannelAccountList channel="scruff" />
@@ -205,17 +249,33 @@
 								</Badge>
 							{/if}
 						</div>
-						{#if channelState.activeChannel !== "jackd"}
+						<div class="flex items-center gap-2">
 							<Button
 								size="sm"
 								variant="outline"
 								onclick={() =>
-									handleSwitchActiveChannel("jackd")}
+									templateState.openDirectDmDialog({
+										channel: "jackd",
+									})}
 								class="h-7 gap-1 px-2.5 text-xs"
 							>
-								<span>切换为 Jack'd 渠道</span>
+								<PaperPlaneRightIcon
+									class="size-3.5 text-primary"
+								/>
+								<span>快捷私信指定</span>
 							</Button>
-						{/if}
+							{#if channelState.activeChannel !== "jackd"}
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={() =>
+										handleSwitchActiveChannel("jackd")}
+									class="h-7 gap-1 px-2.5 text-xs"
+								>
+									<span>切换为 Jack'd 渠道</span>
+								</Button>
+							{/if}
+						</div>
 					</div>
 
 					<ChannelAccountList channel="jackd" />
@@ -237,21 +297,84 @@
 								</Badge>
 							{/if}
 						</div>
-						{#if channelState.activeChannel !== "heesay"}
+						<div class="flex items-center gap-2">
 							<Button
 								size="sm"
 								variant="outline"
 								onclick={() =>
-									handleSwitchActiveChannel("heesay")}
+									templateState.openDirectDmDialog({
+										channel: "heesay",
+									})}
 								class="h-7 gap-1 px-2.5 text-xs"
 							>
-								<span>切换为 Heesay 渠道</span>
+								<PaperPlaneRightIcon
+									class="size-3.5 text-primary"
+								/>
+								<span>快捷私信指定</span>
 							</Button>
-						{/if}
+							{#if channelState.activeChannel !== "heesay"}
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={() =>
+										handleSwitchActiveChannel("heesay")}
+									class="h-7 gap-1 px-2.5 text-xs"
+								>
+									<span>切换为 Heesay 渠道</span>
+								</Button>
+							{/if}
+						</div>
 					</div>
 
 					<ChannelAccountList channel="heesay" />
 					<AddAccountForm channel="heesay" />
+				</Tabs.Content>
+
+				<Tabs.Content value="sub" class="mt-0 flex flex-col gap-4">
+					<div class="flex items-center justify-between">
+						<div class="flex items-center gap-2">
+							<span class="text-sm font-semibold">Sub 账号池</span
+							>
+							{#if channelState.activeChannel === "sub"}
+								<Badge
+									variant="default"
+									class="h-4.5 bg-[#7c3aed] px-1.5 text-[10px] text-white"
+								>
+									当前激活渠道
+								</Badge>
+							{/if}
+						</div>
+						<div class="flex items-center gap-2">
+							<Button
+								size="sm"
+								variant="outline"
+								onclick={() =>
+									templateState.openDirectDmDialog({
+										channel: "sub",
+									})}
+								class="h-7 gap-1 px-2.5 text-xs"
+							>
+								<PaperPlaneRightIcon
+									class="size-3.5 text-primary"
+								/>
+								<span>快捷私信指定</span>
+							</Button>
+							{#if channelState.activeChannel !== "sub"}
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={() =>
+										handleSwitchActiveChannel("sub")}
+									class="h-7 gap-1 px-2.5 text-xs"
+								>
+									<span>切换为 Sub 渠道</span>
+								</Button>
+							{/if}
+						</div>
+					</div>
+
+					<ChannelAccountList channel="sub" />
+					<AddAccountForm channel="sub" />
 				</Tabs.Content>
 
 				<Tabs.Content value="relay" class="mt-0">

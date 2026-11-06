@@ -1,6 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
+import type { SocialChannelType } from "$lib/channel/types";
 import type { HttpLogEntry, WsLogEntry } from "./types";
 
 type LoggerBroadcastMessage =
@@ -235,7 +236,7 @@ class NetworkLoggerState {
 		url: string;
 		body?: unknown;
 		headers?: Record<string, string>;
-		channel?: "grindr" | "scruff" | "jackd" | "heesay";
+		channel?: SocialChannelType;
 	}): HttpLogEntry {
 		const now = Date.now();
 		const date = new Date(now);
@@ -331,7 +332,7 @@ class NetworkLoggerState {
 		ref?: string | null;
 		status?: number | null;
 		timestamp?: number;
-		channel?: "grindr" | "scruff" | "jackd" | "heesay";
+		channel?: SocialChannelType;
 	}) {
 		const now = entry.timestamp ?? Date.now();
 		const date = new Date(now);

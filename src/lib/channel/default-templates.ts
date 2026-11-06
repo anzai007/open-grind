@@ -74,6 +74,20 @@ export const DEFAULT_TEMPLATE_GROUPS: DmTemplateGroup[] = [
 		groupName: "Heesay 英语日常打招呼",
 		languageCode: "en",
 	},
+
+	// Sub
+	{
+		channel: "sub",
+		groupCode: "sub_casual_greetings_zh",
+		groupName: "Sub 中文日常打招呼",
+		languageCode: "zh-CN",
+	},
+	{
+		channel: "sub",
+		groupCode: "sub_casual_greetings_en",
+		groupName: "Sub 英语日常打招呼",
+		languageCode: "en",
+	},
 ];
 
 export const DEFAULT_TEMPLATES: DmTemplate[] = [
@@ -513,5 +527,70 @@ export const DEFAULT_TEMPLATES: DmTemplate[] = [
 		content: "Hi there! Nice photos 😊",
 		enabled: true,
 		createdAt: 1700000075000,
+	},
+
+	// Sub 中文日常打招呼
+	{
+		id: "sub_zh_01",
+		channel: "sub",
+		groupCode: "sub_casual_greetings_zh",
+		groupName: "Sub 中文日常打招呼",
+		title: "友好问候 01",
+		content: "你好啊 {name}，很高兴认识你 👋",
+		enabled: true,
+		createdAt: 1700000081000,
+	},
+	{
+		id: "sub_zh_02",
+		channel: "sub",
+		groupCode: "sub_casual_greetings_zh",
+		groupName: "Sub 中文日常打招呼",
+		title: "属性轻聊 02",
+		content: "哈喽，刷到你常驻在附近，平时喜欢怎么相处呢？",
+		enabled: true,
+		createdAt: 1700000082000,
+	},
+	{
+		id: "sub_zh_03",
+		channel: "sub",
+		groupCode: "sub_casual_greetings_zh",
+		groupName: "Sub 中文日常打招呼",
+		title: "日常开场 03",
+		content: "Hi~ 看到你的资料挺有共鸣的，有空聊聊天吗？",
+		enabled: true,
+		createdAt: 1700000083000,
+	},
+	{
+		id: "sub_zh_04",
+		channel: "sub",
+		groupCode: "sub_casual_greetings_zh",
+		groupName: "Sub 中文日常打招呼",
+		title: "简短打招呼 04",
+		content: "在上班还是在忙呀？",
+		enabled: true,
+		createdAt: 1700000084000,
+	},
+
+	// Sub 英语日常打招呼
+	{
+		id: "sub_en_01",
+		channel: "sub",
+		groupCode: "sub_casual_greetings_en",
+		groupName: "Sub 英语日常打招呼",
+		title: "English Greeting 01",
+		content: "Hey {name}, nice to meet you! How's your week going?",
+		enabled: true,
+		createdAt: 1700000085000,
+	},
+	{
+		id: "sub_en_02",
+		channel: "sub",
+		groupCode: "sub_casual_greetings_en",
+		groupName: "Sub 英语日常打招呼",
+		title: "English Greeting 02",
+		content:
+			"Hi there! Came across your profile and wanted to say hello 😊",
+		enabled: true,
+		createdAt: 1700000086000,
 	},
 ];

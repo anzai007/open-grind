@@ -1,4 +1,4 @@
-/* eslint-disable max-lines */
+ 
 import { SvelteDate, SvelteMap, SvelteSet } from "svelte/reactivity";
 
 import { channelGridState } from "./channel-grid-state.svelte";
@@ -23,6 +23,7 @@ export class ChannelChatState {
 	messages = $state<UniversalMessage[]>([]);
 	isLoadingConversations = $state(false);
 	isLoadingMessages = $state(false);
+	isResyncingOffline = $state(false);
 	isSending = $state(false);
 	error = $state<string | null>(null);
 
@@ -222,9 +223,21 @@ export class ChannelChatState {
 	}
 
 	/**
-	 * 处理来自统一 IM WSS 长链推流报文 (messageRecvNotify / messageSendedNotify)
+	 * 处理来自统一 IM WSS 长链推流报文 (messageRecvNotify / messageSendedNotify / userUpdateNotify)
 	 */
 	private handleWsPacket(packet: RelayWsPacket): void {
+		// 监听账号登录成功通知或连接恢复，自动触发静默拉取离线会话与未读消息
+		if (packet.type === "userUpdateNotify") {
+			const data = packet.data as Record<string, unknown> | undefined;
+			if (data && (data.status === 3 || data.status === "logined")) {
+				void this.loadConversations(true);
+				if (this.activeConversationId) {
+					void this.loadMessages(this.activeConversationId, true);
+				}
+			}
+			return;
+		}
+
 		if (
 			packet.type !== "messageRecvNotify" &&
 			packet.type !== "messageSendedNotify"
@@ -240,7 +253,8 @@ export class ChannelChatState {
 			channel !== "grindr" &&
 			channel !== "scruff" &&
 			channel !== "jackd" &&
-			channel !== "heesay"
+			channel !== "heesay" &&
+			channel !== "sub"
 		) {
 			return;
 		}
@@ -698,6 +712,206 @@ export class ChannelChatState {
 			if (!silent) {
 				this.isLoadingMessages = false;
 			}
+		}
+	}
+
+	/**
+	 * 手动从云端中继补齐离线接收的消息。
+	 * 1. 强制刷新云端会话列表与最新消息快照；
+	 * 2. 深度拉取指定会话或最近活跃/有未读会话的历史消息流；
+	 * 3. 实时合并与界面即时响应。
+	 */
+	async resyncOfflineMessages(options?: {
+		targetConversationId?: string;
+		limitConversations?: number;
+	}): Promise<{ syncedConversations: number; totalNewMessages: number }> {
+		if (this.isResyncingOffline) {
+			return { syncedConversations: 0, totalNewMessages: 0 };
+		}
+		this.isResyncingOffline = true;
+		this.error = null;
+
+		try {
+			// 1. 同步最新会话列表
+			await this.loadConversations(true);
+
+			const provider = channelState.currentProvider;
+			const account = channelState.currentAccount;
+			const targetId = options?.targetConversationId;
+
+			// 2. 筛选需要拉取离线消息的会话：
+			// 若指定特定会话则仅拉取该会话；否则优先拉取当前打开会话、未读会话及最近活跃的前 N 个会话
+			let targetConvs: UniversalConversation[] = [];
+			if (targetId) {
+				const found = this.conversations.find(
+					(c) =>
+						c.conversationId === targetId ||
+						c.targetUserId === targetId ||
+						c.conversationId.includes(targetId),
+				);
+				targetConvs = found
+					? [found]
+					: [
+							{
+								channel: channelState.activeChannel,
+								conversationId: targetId,
+								lastMessageText: "",
+								lastMessageTimestamp: 0,
+								targetUserId: this.normalizePartnerId(targetId),
+								targetUserName: `User ${targetId}`,
+								unreadCount: 0,
+							},
+						];
+			} else {
+				const maxLimit = options?.limitConversations ?? 15;
+				const active = this.activeConversation;
+				const candidates = [...this.conversations].sort((a, b) => {
+					if ((a.unreadCount || 0) > 0 && (b.unreadCount || 0) === 0)
+						return -1;
+					if ((b.unreadCount || 0) > 0 && (a.unreadCount || 0) === 0)
+						return 1;
+					return (
+						(b.lastMessageTimestamp ?? 0) -
+						(a.lastMessageTimestamp ?? 0)
+					);
+				});
+
+				targetConvs = candidates.slice(0, maxLimit);
+				if (
+					active &&
+					!targetConvs.some(
+						(c) => c.conversationId === active.conversationId,
+					)
+				) {
+					targetConvs.unshift(active);
+				}
+			}
+
+			let totalNew = 0;
+			let syncedCount = 0;
+
+			// 3. 逐个并发补齐会话离线消息
+			await Promise.allSettled(
+				targetConvs.map(async (conv) => {
+					try {
+						const remoteMsgs = await provider.getMessages(
+							conv.conversationId,
+							{ account },
+						);
+						if (remoteMsgs && remoteMsgs.length > 0) {
+							const msgScope = this.getMessageScopeKey(
+								conv.conversationId,
+							);
+							const localMsgs =
+								this.messagesStore.get(msgScope) ?? [];
+							const localIds = new SvelteSet(
+								localMsgs.map((m) => m.id),
+							);
+							const newItems = remoteMsgs.filter(
+								(m) => !localIds.has(m.id),
+							);
+
+							const mergedMap = new SvelteMap<
+								string,
+								UniversalMessage
+							>();
+							for (const m of localMsgs) mergedMap.set(m.id, m);
+							for (const m of remoteMsgs) mergedMap.set(m.id, m);
+
+							const mergedList = Array.from(
+								mergedMap.values(),
+							).sort((a, b) => a.timestamp - b.timestamp);
+							this.messagesStore.set(msgScope, mergedList);
+							totalNew += newItems.length;
+
+							// 如果当前正在查看该会话，即刻更新展示流
+							const activePartner = this.activeConversationId
+								? this.normalizePartnerId(
+										this.activeConversationId,
+									)
+								: null;
+							const convPartner = this.normalizePartnerId(
+								conv.conversationId,
+							);
+							const isCurrentlyActive =
+								activePartner !== null &&
+								activePartner === convPartner;
+
+							if (isCurrentlyActive) {
+								this.messages = mergedList;
+							}
+
+							// 关键：若有新增的对方回复（入站消息），为对应会话累加未读数并更新最后消息
+							const newInboundCount = newItems.filter(
+								(m) => !m.isFromMe,
+							).length;
+							const latestMsg = mergedList[mergedList.length - 1];
+
+							let convItem = this.conversations.find(
+								(c) =>
+									c.conversationId === conv.conversationId ||
+									c.targetUserId === convPartner ||
+									c.conversationId.includes(convPartner),
+							);
+
+							if (!convItem && latestMsg) {
+								convItem = {
+									channel: channelState.activeChannel,
+									conversationId: conv.conversationId,
+									lastMessageText: latestMsg.text,
+									lastMessageTimestamp: latestMsg.timestamp,
+									targetUserId: convPartner,
+									targetUserName:
+										conv.targetUserName ||
+										`User ${convPartner}`,
+									targetAvatarUrl: conv.targetAvatarUrl,
+									unreadCount: isCurrentlyActive
+										? 0
+										: newInboundCount,
+								};
+								this.conversations.push(convItem);
+							} else if (convItem && latestMsg) {
+								convItem.lastMessageText =
+									latestMsg.text || convItem.lastMessageText;
+								convItem.lastMessageTimestamp = Math.max(
+									convItem.lastMessageTimestamp ?? 0,
+									latestMsg.timestamp,
+								);
+								if (isCurrentlyActive) {
+									convItem.unreadCount = 0;
+								} else if (newInboundCount > 0) {
+									convItem.unreadCount =
+										(convItem.unreadCount || 0) +
+										newInboundCount;
+								}
+							}
+
+							syncedCount++;
+						}
+					} catch (err) {
+						console.warn(
+							`[resyncOfflineMessages] conv ${conv.conversationId} error:`,
+							err,
+						);
+					}
+				}),
+			);
+
+			// 重新按最后一条消息时间戳倒序排列
+			this.conversations.sort(
+				(a, b) =>
+					(b.lastMessageTimestamp ?? 0) -
+					(a.lastMessageTimestamp ?? 0),
+			);
+			const scope = this.getScopeKey();
+			this.conversationsStore.set(scope, this.conversations);
+			this.saveToStorage();
+			return {
+				syncedConversations: syncedCount,
+				totalNewMessages: totalNew,
+			};
+		} finally {
+			this.isResyncingOffline = false;
 		}
 	}
 

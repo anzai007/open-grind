@@ -7,6 +7,7 @@
 	import HandWavingIcon from "phosphor-svelte/lib/HandWavingIcon";
 	import PaperPlaneRightIcon from "phosphor-svelte/lib/PaperPlaneRightIcon";
 	import PawPrintIcon from "phosphor-svelte/lib/PawPrintIcon";
+	import SparkleIcon from "phosphor-svelte/lib/SparkleIcon";
 	import WarningCircleIcon from "phosphor-svelte/lib/WarningCircleIcon";
 	import XIcon from "phosphor-svelte/lib/XIcon";
 	import { toast } from "svelte-sonner";
@@ -18,6 +19,7 @@
 	import { Spinner } from "$lib/components/ui/spinner";
 	import { channelChatState } from "../channel-chat-state.svelte";
 	import { channelState } from "../channel-state.svelte";
+	import { templateState } from "../template-state.svelte";
 	import ProfilePhotoCarousel from "./ProfilePhotoCarousel.svelte";
 	import ProfileStatsGrid from "./ProfileStatsGrid.svelte";
 
@@ -224,6 +226,10 @@
 										></span>
 										当前在线
 									</span>
+								{:else if user.lastActiveText}
+									<span class="text-muted-foreground/80">
+										{user.lastActiveText}
+									</span>
 								{/if}
 								{#if user.distanceText}
 									<span>距你 {user.distanceText}</span>
@@ -295,6 +301,23 @@
 				<div class="flex items-center gap-2">
 					<Button
 						variant="outline"
+						onclick={() => {
+							if (user) {
+								templateState.openDirectDmDialog({
+									channel: channelState.activeChannel,
+									userId: user.id,
+								});
+							}
+						}}
+						class="h-8.5 flex-1 gap-1.5 text-xs text-primary"
+						title="使用私信模版直接发送给该用户"
+					>
+						<SparkleIcon class="size-3.5" weight="bold" />
+						<span>模版私信</span>
+					</Button>
+
+					<Button
+						variant="outline"
 						onclick={handleStartChat}
 						class="h-8.5 flex-1 gap-1.5 text-xs"
 					>
@@ -320,7 +343,7 @@
 						{:else if channelState.activeChannel === "jackd"}
 							<HandWavingIcon class="size-3.5" weight="bold" />
 							<span>打招呼 (Wave)</span>
-						{:else if channelState.activeChannel === "heesay"}
+						{:else if channelState.activeChannel === "heesay" || channelState.activeChannel === "sub"}
 							<ChatCircleDotsIcon
 								class="size-3.5"
 								weight="bold"

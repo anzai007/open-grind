@@ -2,15 +2,18 @@
 	import ArrowsClockwiseIcon from "phosphor-svelte/lib/ArrowsClockwiseIcon";
 	import CaretLeftIcon from "phosphor-svelte/lib/CaretLeftIcon";
 	import ChatsCircleIcon from "phosphor-svelte/lib/ChatsCircleIcon";
+	import CloudArrowDownIcon from "phosphor-svelte/lib/CloudArrowDownIcon";
 	import PaperPlaneRightIcon from "phosphor-svelte/lib/PaperPlaneRightIcon";
 	import UserIcon from "phosphor-svelte/lib/UserIcon";
 	import { tick } from "svelte";
+	import { toast } from "svelte-sonner";
 
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
 	import { Spinner } from "$lib/components/ui/spinner";
 	import { channelChatState } from "../channel-chat-state.svelte";
 	import { channelState } from "../channel-state.svelte";
+	import { templateState } from "../template-state.svelte";
 	import ChannelMessageBubble from "./ChannelMessageBubble.svelte";
 	import ChannelNoAccountEmpty from "./ChannelNoAccountEmpty.svelte";
 
@@ -120,6 +123,44 @@
 	function handleViewProfile(targetUserId: string) {
 		void channelState.openProfile(targetUserId);
 	}
+
+	async function handleResyncAllOffline() {
+		try {
+			const res = await channelChatState.resyncOfflineMessages();
+			if (res.totalNewMessages > 0) {
+				toast.success(
+					`已补齐 ${res.syncedConversations} 个会话的离线消息（新增 ${res.totalNewMessages} 条）`,
+				);
+			} else {
+				toast.info(
+					`离线消息已是最新（已检查 ${res.syncedConversations} 个会话）`,
+				);
+			}
+		} catch (err) {
+			toast.error(
+				`补齐离线消息失败: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	}
+
+	async function handleResyncCurrentOffline(convId: string) {
+		try {
+			const res = await channelChatState.resyncOfflineMessages({
+				targetConversationId: convId,
+			});
+			if (res.totalNewMessages > 0) {
+				toast.success(
+					`已补齐该会话的 ${res.totalNewMessages} 条离线消息`,
+				);
+			} else {
+				toast.info("该会话消息已是最新");
+			}
+		} catch (err) {
+			toast.error(
+				`补齐离线消息失败: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	}
 </script>
 
 <div class="relative flex h-full w-full flex-1 overflow-hidden bg-background">
@@ -148,23 +189,56 @@
 						私信收件箱
 					</span>
 				</div>
-				<button
-					type="button"
-					onclick={() => void channelChatState.loadConversations()}
-					disabled={channelChatState.isLoadingConversations}
-					class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-					title="刷新会话"
-				>
-					<ArrowsClockwiseIcon
-						class={[
-							"size-4",
-							{
-								"animate-spin":
-									channelChatState.isLoadingConversations,
-							},
-						]}
-					/>
-				</button>
+				<div class="flex items-center gap-1.5">
+					<button
+						type="button"
+						onclick={() => templateState.openDirectDmDialog()}
+						class="flex items-center gap-1 rounded-md border border-border/80 bg-background/80 px-2 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+						title="快捷私信指定：填用户ID和选模版发送"
+					>
+						<PaperPlaneRightIcon
+							class="size-3.5 text-primary"
+							weight="fill"
+						/>
+						<span>指定私信</span>
+					</button>
+
+					<button
+						type="button"
+						onclick={handleResyncAllOffline}
+						disabled={channelChatState.isResyncingOffline ||
+							channelChatState.isLoadingConversations}
+						class="flex items-center gap-1 rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+						title="手动从云端补齐各会话离线消息"
+					>
+						{#if channelChatState.isResyncingOffline}
+							<Spinner class="size-3.5" />
+							<span class="hidden sm:inline">补齐中...</span>
+						{:else}
+							<CloudArrowDownIcon class="size-3.5" />
+							<span>补齐离线</span>
+						{/if}
+					</button>
+
+					<button
+						type="button"
+						onclick={() =>
+							void channelChatState.loadConversations()}
+						disabled={channelChatState.isLoadingConversations}
+						class="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+						title="刷新会话"
+					>
+						<ArrowsClockwiseIcon
+							class={[
+								"size-4",
+								{
+									"animate-spin":
+										channelChatState.isLoadingConversations,
+								},
+							]}
+						/>
+					</button>
+				</div>
 			</div>
 
 			<!-- 会话列表滚动区域 -->
@@ -304,7 +378,30 @@
 						</div>
 					</div>
 
-					<div class="flex items-center gap-1">
+					<div class="flex items-center gap-1.5">
+						<button
+							type="button"
+							onclick={() => {
+								if (activeConv) {
+									void handleResyncCurrentOffline(
+										activeConv.conversationId,
+									);
+								}
+							}}
+							disabled={channelChatState.isResyncingOffline ||
+								channelChatState.isLoadingMessages}
+							class="flex items-center gap-1 rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+							title="补齐该会话离线消息"
+						>
+							{#if channelChatState.isResyncingOffline}
+								<Spinner class="size-3.5" />
+								<span class="hidden sm:inline">补齐中...</span>
+							{:else}
+								<CloudArrowDownIcon class="size-3.5" />
+								<span class="hidden sm:inline">补齐离线</span>
+							{/if}
+						</button>
+
 						<button
 							type="button"
 							onclick={() => {

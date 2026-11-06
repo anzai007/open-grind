@@ -2,6 +2,7 @@
 	import ArrowSquareOutIcon from "phosphor-svelte/lib/ArrowSquareOutIcon";
 	import ChatCircleDotsIcon from "phosphor-svelte/lib/ChatCircleDotsIcon";
 	import ListIcon from "phosphor-svelte/lib/ListIcon";
+	import PaperPlaneRightIcon from "phosphor-svelte/lib/PaperPlaneRightIcon";
 	import PulseIcon from "phosphor-svelte/lib/PulseIcon";
 	import UsersThreeIcon from "phosphor-svelte/lib/UsersThreeIcon";
 	import { onMount } from "svelte";
@@ -99,6 +100,20 @@
 						{activeGroup.groupName}
 					</span>
 				{/if}
+			</DropdownMenu.Item>
+
+			<DropdownMenu.Item
+				onSelect={() => templateState.openDirectDmDialog()}
+				class="flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-2 hover:bg-accent"
+			>
+				<div class="flex items-center gap-2">
+					<PaperPlaneRightIcon
+						class="size-4 text-primary"
+						weight="bold"
+					/>
+					<span class="text-sm font-medium">快捷私信指定</span>
+				</div>
+				<span class="text-[11px] text-muted-foreground">ID/模版</span>
 			</DropdownMenu.Item>
 		</DropdownMenu.Group>
 

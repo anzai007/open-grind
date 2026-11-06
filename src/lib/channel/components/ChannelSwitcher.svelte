@@ -2,6 +2,7 @@
 	import CaretDownIcon from "phosphor-svelte/lib/CaretDownIcon";
 	import CheckIcon from "phosphor-svelte/lib/CheckIcon";
 	import GearSixIcon from "phosphor-svelte/lib/GearSixIcon";
+	import PaperPlaneRightIcon from "phosphor-svelte/lib/PaperPlaneRightIcon";
 	import PlusIcon from "phosphor-svelte/lib/PlusIcon";
 	import { toast } from "svelte-sonner";
 
@@ -9,6 +10,7 @@
 	import { Button } from "$lib/components/ui/button";
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
 	import { channelState } from "../channel-state.svelte";
+	import { templateState } from "../template-state.svelte";
 	import {
 		CHANNEL_METAS,
 		type ChannelAccount,
@@ -181,6 +183,14 @@
 		{/if}
 
 		<DropdownMenu.Separator class="my-1" />
+
+		<DropdownMenu.Item
+			onSelect={() => templateState.openDirectDmDialog()}
+			class="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+		>
+			<PaperPlaneRightIcon class="size-3.5 text-primary" weight="bold" />
+			<span>快捷私信指定 (ID/模版)...</span>
+		</DropdownMenu.Item>
 
 		<DropdownMenu.Item
 			onSelect={() => channelState.openAccountDialog()}

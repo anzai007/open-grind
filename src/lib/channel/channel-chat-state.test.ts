@@ -405,4 +405,64 @@ describe("ChannelChatState", () => {
 			1000,
 		);
 	});
+
+	it("manually resyncs offline messages across conversations", async () => {
+		const currentProvider = channelState.currentProvider;
+		vi.spyOn(currentProvider, "getConversations").mockResolvedValue({
+			hasNext: false,
+			items: [
+				{
+					channel: "scruff",
+					conversationId: "conv-offline-1",
+					lastMessageText: "Recent offline",
+					lastMessageTimestamp: 2000,
+					targetUserId: "user-offline-1",
+					targetUserName: "Offline Pal",
+					unreadCount: 0,
+				},
+			],
+			offset: 0,
+			total: 1,
+		});
+
+		vi.spyOn(currentProvider, "getMessages").mockResolvedValue([
+			{
+				channel: "scruff",
+				conversationId: "conv-offline-1",
+				id: "m_offline_1",
+				isFromMe: false,
+				recipientId: "me",
+				senderId: "user-offline-1",
+				status: "delivered",
+				text: "First offline msg",
+				timestamp: 1500,
+			},
+			{
+				channel: "scruff",
+				conversationId: "conv-offline-1",
+				id: "m_offline_2",
+				isFromMe: false,
+				recipientId: "me",
+				senderId: "user-offline-1",
+				status: "delivered",
+				text: "Second offline msg",
+				timestamp: 2000,
+			},
+		]);
+
+		const syncResult = await channelChatState.resyncOfflineMessages();
+
+		expect(syncResult.syncedConversations).toBe(1);
+		expect(syncResult.totalNewMessages).toBe(2);
+		expect(channelChatState.conversations).toHaveLength(1);
+		// 验证：补齐离线后，新增的 2 条入站消息必须显示在对应会话的未读数上
+		expect(channelChatState.conversations[0]!.unreadCount).toBe(2);
+
+		// When selecting that conversation, unreadCount should be cleared to 0
+		await channelChatState.selectConversation("conv-offline-1");
+		expect(channelChatState.conversations[0]!.unreadCount).toBe(0);
+		expect(channelChatState.messages).toHaveLength(2);
+		expect(channelChatState.messages[0]!.text).toBe("First offline msg");
+		expect(channelChatState.messages[1]!.text).toBe("Second offline msg");
+	});
 });

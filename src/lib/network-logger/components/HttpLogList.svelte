@@ -56,6 +56,8 @@
 											req.channel === "jackd",
 										"bg-pink-500/15 text-pink-600 dark:text-pink-400":
 											req.channel === "heesay",
+										"bg-purple-500/15 text-purple-600 dark:text-purple-400":
+											req.channel === "sub",
 									},
 								]}
 							>

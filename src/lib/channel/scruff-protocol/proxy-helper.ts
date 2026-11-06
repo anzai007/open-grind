@@ -74,7 +74,7 @@ export function resolveEffectiveProxy(
  * Fetch account binding info from ai-growth platform database with a strict short timeout.
  */
 export async function queryPlatformAccount(
-	platform: "scruff" | "jackd" | "heesay",
+	platform: "scruff" | "jackd" | "heesay" | "sub",
 	accountEmail: string,
 	timeoutMs = 4000,
 ): Promise<PlatformAccountInfo | null> {

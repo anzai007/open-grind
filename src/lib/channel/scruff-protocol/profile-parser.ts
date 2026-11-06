@@ -28,6 +28,9 @@ export interface RawScruffProfile {
 	}>;
 	distance?: number;
 	logged_in?: boolean;
+	online?: boolean;
+	recent?: boolean;
+	last_login?: string | number;
 	last_active?: number | string;
 	height?: number;
 	weight_kg?: number;
@@ -39,6 +42,61 @@ export interface RawScruffProfile {
 	community_interests?: number[];
 	hashtags?: string[];
 	urls?: Array<{ service: number; url: string }>;
+}
+
+/**
+ * 判断 Scruff 协议族用户是否实时在线。
+ * 注意：Scruff 官方接口中 logged_in 仅表示已完成设备注册登录，几乎所有被检索到的用户均为 true。
+ * 此外，Scruff 会将最近 1 小时内有会话的用户都标记为 online: true。
+ * 真正的实时在线应结合 last_login（最后登录时间戳）判断是否在最近 5 分钟内。
+ */
+export function isScruffUserOnline(p: RawScruffProfile): boolean {
+	const lastLogin = p.last_login ?? p.last_active;
+	let lastLoginMs = 0;
+	if (typeof lastLogin === "number") {
+		lastLoginMs = lastLogin > 1e11 ? lastLogin : lastLogin * 1000;
+	} else if (typeof lastLogin === "string" && lastLogin.trim()) {
+		const parsed = Date.parse(lastLogin);
+		if (!Number.isNaN(parsed)) {
+			lastLoginMs = parsed;
+		}
+	}
+
+	if (lastLoginMs > 0) {
+		const diffMs = Date.now() - lastLoginMs;
+		// 5 分钟以内活跃且标记为 online 或 recent 视作实时在线
+		return (
+			(Boolean(p.online) || Boolean(p.recent)) &&
+			diffMs >= 0 &&
+			diffMs <= 5 * 60 * 1000
+		);
+	}
+
+	// 降级兜底：若上游未返回 last_login 时间，按 online 状态兜底（不信任 logged_in）
+	return Boolean(p.online);
+}
+
+/**
+ * 格式化 Scruff 协议族用户最后活跃时间文本。
+ */
+export function formatScruffLastActive(
+	p: RawScruffProfile,
+): string | undefined {
+	const lastLogin = p.last_login ?? p.last_active;
+	if (!lastLogin) return undefined;
+	let ms = 0;
+	if (typeof lastLogin === "number") {
+		ms = lastLogin > 1e11 ? lastLogin : lastLogin * 1000;
+	} else if (typeof lastLogin === "string" && lastLogin.trim()) {
+		const parsed = Date.parse(lastLogin);
+		if (!Number.isNaN(parsed)) ms = parsed;
+	}
+	if (!ms) return undefined;
+	const diffSec = Math.floor((Date.now() - ms) / 1000);
+	if (diffSec < 60) return "刚刚在线";
+	if (diffSec < 3600) return `${Math.floor(diffSec / 60)} 分钟前活跃`;
+	if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} 小时前活跃`;
+	return `${Math.floor(diffSec / 86400)} 天前活跃`;
 }
 
 export function parseRawScruffProfile(
@@ -143,6 +201,9 @@ export function parseRawScruffProfile(
 		}
 	}
 
+	const online = isScruffUserOnline(p);
+	const lastActiveText = online ? "当前在线" : formatScruffLastActive(p);
+
 	return {
 		about: p.about || undefined,
 		age: p.age,
@@ -159,7 +220,8 @@ export function parseRawScruffProfile(
 		ethnicity,
 		heightCm,
 		id: String(p.id),
-		isOnline: Boolean(p.logged_in),
+		isOnline: online,
+		lastActiveText,
 		photos,
 		rawPayload: p,
 		relationshipStatus,

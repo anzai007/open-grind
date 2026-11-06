@@ -53,6 +53,8 @@
 											ws.channel === "jackd",
 										"bg-pink-500/15 text-pink-600 dark:text-pink-400":
 											ws.channel === "heesay",
+										"bg-purple-500/15 text-purple-600 dark:text-purple-400":
+											ws.channel === "sub",
 									},
 								]}
 							>

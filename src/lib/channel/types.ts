@@ -1,4 +1,9 @@
-export type SocialChannelType = "grindr" | "scruff" | "jackd" | "heesay";
+export type SocialChannelType =
+	| "grindr"
+	| "scruff"
+	| "jackd"
+	| "heesay"
+	| "sub";
 
 export interface ChannelMeta {
 	type: SocialChannelType;
@@ -6,7 +11,7 @@ export interface ChannelMeta {
 	shortName: string;
 	brandColor: string;
 	brandForeground: string;
-	interactionName: string; // Grindr: Tap, Scruff: Woof, Jack'd: Wave, Heesay: SayHi
+	interactionName: string; // Grindr: Tap, Scruff: Woof, Jack'd: Wave, Heesay: SayHi, Sub: SayHi
 	iconName: string;
 }
 
@@ -43,6 +48,15 @@ export const CHANNEL_METAS: Record<SocialChannelType, ChannelMeta> = {
 		name: "Heesay",
 		shortName: "Heesay",
 		brandColor: "#0066ff",
+		brandForeground: "#ffffff",
+		interactionName: "SayHi",
+		iconName: "ChatCircleDots",
+	},
+	sub: {
+		type: "sub",
+		name: "Sub",
+		shortName: "Sub",
+		brandColor: "#7c3aed",
 		brandForeground: "#ffffff",
 		interactionName: "SayHi",
 		iconName: "ChatCircleDots",

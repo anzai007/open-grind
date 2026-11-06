@@ -4,7 +4,7 @@ import { networkLoggerState } from "$lib/network-logger/network-logger-state.sve
 import type { ChannelAccount } from "../types";
 
 export interface RelayClientOptions {
-	platform: "scruff" | "jackd" | "heesay";
+	platform: "scruff" | "jackd" | "heesay" | "sub";
 	relayBaseUrl?: string;
 	relayKey?: string;
 }
@@ -71,7 +71,7 @@ function toBrowserSafeUrl(url: string): string {
 }
 
 export class RelayClient {
-	readonly platform: "scruff" | "jackd" | "heesay";
+	readonly platform: "scruff" | "jackd" | "heesay" | "sub";
 	readonly relayBaseUrl: string;
 	readonly relayKey: string;
 

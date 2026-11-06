@@ -4,6 +4,7 @@ import { GrindrProvider } from "./providers/grindr-provider";
 import { HeesayProvider } from "./providers/heesay-provider";
 import { JackdProvider } from "./providers/jackd-provider";
 import { ScruffProvider } from "./providers/scruff-provider";
+import { SubProvider } from "./providers/sub-provider";
 import { CHANNEL_METAS } from "./types";
 
 describe("Channel Providers & Metadata", () => {
@@ -39,6 +40,14 @@ describe("Channel Providers & Metadata", () => {
 		expect(provider.meta.brandColor).toBe("#0066ff");
 	});
 
+	it("has correct metadata matching Sub specifications", () => {
+		const provider = new SubProvider();
+		expect(provider.channel).toBe("sub");
+		expect(provider.meta).toEqual(CHANNEL_METAS.sub);
+		expect(provider.meta.interactionName).toBe("SayHi");
+		expect(provider.meta.brandColor).toBe("#7c3aed");
+	});
+
 	it("contains consistent metadata for all supported channels", () => {
 		expect(CHANNEL_METAS.grindr.name).toBe("Grindr");
 		expect(CHANNEL_METAS.grindr.interactionName).toBe("Tap");
@@ -51,6 +60,9 @@ describe("Channel Providers & Metadata", () => {
 
 		expect(CHANNEL_METAS.heesay.name).toBe("Heesay");
 		expect(CHANNEL_METAS.heesay.interactionName).toBe("SayHi");
+
+		expect(CHANNEL_METAS.sub.name).toBe("Sub");
+		expect(CHANNEL_METAS.sub.interactionName).toBe("SayHi");
 	});
 
 	it("throws on invalid profile id for user details in Grindr", async () => {

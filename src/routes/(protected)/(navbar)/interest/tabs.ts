@@ -9,7 +9,7 @@ export function getInterestTabs(channel: string = "grindr") {
 			? "Woof"
 			: channel === "jackd"
 				? "Wave"
-				: channel === "heesay"
+				: channel === "heesay" || channel === "sub"
 					? "SayHi"
 					: "Taps";
 	return [

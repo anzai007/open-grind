@@ -1,8 +1,10 @@
+import type { SocialChannelType } from "$lib/channel/types";
+
 export interface HttpLogEntry {
 	id: string;
 	timestamp: number;
 	timeStr: string;
-	channel?: "grindr" | "scruff" | "jackd" | "heesay";
+	channel?: SocialChannelType;
 	method: string;
 	url: string;
 	path: string;
@@ -20,7 +22,7 @@ export interface WsLogEntry {
 	id: string;
 	timestamp: number;
 	timeStr: string;
-	channel?: "grindr" | "scruff" | "jackd" | "heesay";
+	channel?: SocialChannelType;
 	direction: "sent" | "received" | "status";
 	type: string;
 	ref?: string | null;

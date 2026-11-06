@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { templateState } from "./template-state.svelte";
+import {
+	DEFAULT_DIRECT_DM_TARGET_USER_IDS,
+	templateState,
+} from "./template-state.svelte";
 
 describe("TemplateState", () => {
 	it("initializes default template groups and templates per channel", () => {
@@ -64,5 +67,61 @@ describe("TemplateState", () => {
 			active!.groupCode,
 		);
 		expect(templatesAfter.some((t) => t.id === newTpl.id)).toBe(false);
+	});
+
+	it("configures correct default target user IDs for channels", () => {
+		expect(DEFAULT_DIRECT_DM_TARGET_USER_IDS.scruff).toBe("202040775");
+		expect(DEFAULT_DIRECT_DM_TARGET_USER_IDS.heesay).toBe("111117647");
+		expect(DEFAULT_DIRECT_DM_TARGET_USER_IDS.jackd).toBe("202279231");
+	});
+
+	it("manages openDirectDmDialog and default IDs properly", () => {
+		templateState.openDirectDmDialog({ channel: "scruff" });
+		expect(templateState.isDirectDmOpen).toBe(true);
+		expect(templateState.directDmSelectedChannel).toBe("scruff");
+		expect(templateState.directDmTargetUserId).toBe("202040775");
+
+		templateState.openDirectDmDialog({ channel: "heesay" });
+		expect(templateState.directDmSelectedChannel).toBe("heesay");
+		expect(templateState.directDmTargetUserId).toBe("111117647");
+
+		templateState.openDirectDmDialog({ channel: "jackd" });
+		expect(templateState.directDmSelectedChannel).toBe("jackd");
+		expect(templateState.directDmTargetUserId).toBe("202279231");
+
+		templateState.openDirectDmDialog({ channel: "sub" });
+		expect(templateState.directDmSelectedChannel).toBe("sub");
+		expect(templateState.directDmTargetUserId).toBe("1063461581229215744");
+
+		templateState.openDirectDmDialog({
+			channel: "scruff",
+			userId: "998877",
+		});
+		expect(templateState.directDmTargetUserId).toBe("998877");
+
+		templateState.closeDirectDmDialog();
+		expect(templateState.isDirectDmOpen).toBe(false);
+	});
+
+	it("interpolates variables properly in interpolateTemplate", () => {
+		const out = templateState.interpolateTemplate(
+			"Hi {name}, how is your day? - {display_name}",
+			{ displayName: "David" },
+		);
+		expect(out).toBe("Hi David, how is your day? - David");
+
+		const out2 = templateState.interpolateTemplate("Hello {{name}}!", {
+			displayName: "User 12345",
+		});
+		expect(out2).toBe("Hello !");
+	});
+
+	it("validates empty target userId in sendQuickDm", async () => {
+		const res = await templateState.sendQuickDm({
+			id: "   ",
+			displayName: "",
+		});
+		expect(res.success).toBe(false);
+		expect(res.error).toBe("目标用户ID不能为空");
 	});
 });

@@ -1,4 +1,4 @@
-/* eslint-disable max-lines */
+ 
 import type {
 	ConversationQueryParams,
 	MessageQueryParams,
@@ -18,7 +18,12 @@ import {
 	type UniversalMessage,
 	type UniversalUserProfile,
 } from "../types";
-import { parseRawScruffProfile, type RawScruffProfile } from "./profile-parser";
+import {
+	formatScruffLastActive,
+	isScruffUserOnline,
+	parseRawScruffProfile,
+	type RawScruffProfile,
+} from "./profile-parser";
 import { queryPlatformAccount, resolveEffectiveProxy } from "./proxy-helper";
 import { RelayClient } from "./relay-client";
 import { relayImWs } from "./relay-im-ws.svelte";
@@ -177,7 +182,8 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 					p.distance !== undefined
 						? `${p.distance.toFixed(1)} km`
 						: undefined,
-				isOnline: Boolean(p.logged_in),
+				isOnline: isScruffUserOnline(p),
+				lastSeenText: formatScruffLastActive(p),
 				headline: p.about || undefined,
 				tags: p.hashtags ?? [],
 				rawPayload: p,
@@ -252,10 +258,32 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 	): Promise<PageResult<UniversalConversation>> {
 		const account = await this.ensureAccountProxy(params?.account);
 
-		const userIdentifier =
+		let userIdentifier =
 			(account?.extraMeta?.profileId as string | undefined) ||
-			account?.accountIdentifier ||
+			(account?.extraMeta?.externalUserId as string | undefined) ||
 			"";
+
+		if (!userIdentifier && account?.accountIdentifier) {
+			try {
+				const platInfo = await queryPlatformAccount(
+					this.channel === "jackd" ? "jackd" : "scruff",
+					account.accountIdentifier,
+					2000,
+				);
+				if (platInfo?.platformUserId) {
+					userIdentifier = String(platInfo.platformUserId);
+					if (account.extraMeta) {
+						account.extraMeta.profileId = userIdentifier;
+					}
+				}
+			} catch {
+				// 降级使用原有标识
+			}
+		}
+
+		if (!userIdentifier) {
+			userIdentifier = account?.accountIdentifier || "";
+		}
 
 		const res = await this.client.request<{
 			ret?: boolean;
@@ -496,7 +524,8 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 					distanceMeters: null,
 					headline: p.about || undefined,
 					id: String(p.id),
-					isOnline: Boolean(p.logged_in),
+					isOnline: isScruffUserOnline(p),
+					lastSeenText: formatScruffLastActive(p),
 					rawPayload: p,
 					tags: p.hashtags ?? [],
 				};
@@ -555,65 +584,179 @@ export abstract class ScruffProtocolBaseProvider implements SocialChannelProvide
 				targetProfileId;
 		}
 
-		const res = await this.client.request<{
-			results?: Array<{
-				guid?: string;
-				id?: string | number;
-				sender?: string | number;
-				sender_id?: string | number;
-				recipient?: string | number;
-				recipient_id?: string | number;
-				message?: string;
-				message_type?: number;
-				created_at?: string | number;
-				timestamp?: number;
-				image_guid?: string;
-				photo_key?: string;
-			}>;
-		}>({
-			account,
-			method: "GET",
-			path: "/app/chat",
-			query: {
-				inbox_style: 2,
-				keep_unread: 0,
-				profile_id: targetProfileId,
-			},
-			timeoutMs: 12000,
-		});
+		const mergedMessagesMap = new Map<string, UniversalMessage>();
 
-		const list = res.results || [];
+		// 1. 优先拉取统一 IM 中继存储的离线历史消息流 (/_private/im/messages)
+		// 构建候选的会话 ID 列表：优先使用传入的 conversationId，次选 target-myId 与 myId-target
+		const candidateConvIds = [
+			conversationId,
+			myId && targetProfileId ? `${targetProfileId}-${myId}` : null,
+			myId && targetProfileId ? `${myId}-${targetProfileId}` : null,
+			myId && targetProfileId ? `${targetProfileId}:${myId}` : null,
+			myId && targetProfileId ? `${myId}:${targetProfileId}` : null,
+		].filter(
+			(id, idx, arr): id is string =>
+				Boolean(id) && arr.indexOf(id) === idx,
+		);
 
-		return list.map((m) => {
-			const time = m.timestamp
-				? m.timestamp > 1e11
-					? m.timestamp
-					: m.timestamp * 1000
-				: m.created_at
-					? new Date(m.created_at).getTime()
-					: Date.now();
-			const senderId = String(m.sender ?? m.sender_id ?? "");
-			const recipientId = String(m.recipient ?? m.recipient_id ?? "");
-			const isFromMe = Boolean(myId && senderId === myId);
-			const mediaKey = m.photo_key || m.image_guid;
-			const mediaUrl = mediaKey
-				? buildScruffPhotoUrl(mediaKey)
-				: undefined;
+		for (const candId of candidateConvIds) {
+			try {
+				const imRes = await this.client.request<{
+					ret?: boolean;
+					data?: Array<{
+						messageId?: string;
+						conversationId?: string;
+						sender?: string;
+						target?: string;
+						senderTime?: string;
+						messageContent?: string;
+						attachment?: Record<string, unknown> | null;
+						isRead?: boolean;
+						isRecalled?: boolean;
+						isDeleted?: boolean;
+					}>;
+				}>({
+					account,
+					method: "GET",
+					path: "/_private/im/messages",
+					query: {
+						conversationId: candId,
+						direction: "desc",
+						platform: this.client.platform,
+						size: 50,
+					},
+					timeoutMs: 8000,
+				});
 
-			return {
-				channel: this.channel,
-				conversationId,
-				id: String(m.guid || m.id || crypto.randomUUID()),
-				isFromMe,
-				mediaUrl,
-				rawPayload: m,
-				recipientId,
-				senderId,
-				status: "delivered",
-				text: m.message || "",
-				timestamp: time,
-			};
-		});
+				if (
+					imRes.ret &&
+					Array.isArray(imRes.data) &&
+					imRes.data.length > 0
+				) {
+					for (const m of imRes.data) {
+						if (!m.messageId) continue;
+						const senderId = String(m.sender ?? "");
+						const recipientId = String(m.target ?? "");
+						const isFromMe = Boolean(myId && senderId === myId);
+						const time = m.senderTime
+							? new Date(m.senderTime).getTime()
+							: Date.now();
+
+						let mediaUrl: string | undefined;
+						if (m.attachment) {
+							const att = m.attachment;
+							const rawUrl = (att.url ||
+								att.imageUrl ||
+								att.image_url) as string | undefined;
+							const key = (att.key ||
+								att.thumbnailKey ||
+								att.thumbnail_key ||
+								att.fullsizeKey ||
+								att.fullsize_key) as string | undefined;
+							mediaUrl =
+								typeof rawUrl === "string"
+									? rawUrl
+									: typeof key === "string"
+										? buildScruffPhotoUrl(key)
+										: undefined;
+						}
+
+						mergedMessagesMap.set(m.messageId, {
+							channel: this.channel,
+							conversationId,
+							id: m.messageId,
+							isFromMe,
+							mediaUrl,
+							rawPayload: m,
+							recipientId,
+							senderId,
+							status: "delivered",
+							text:
+								m.messageContent || (mediaUrl ? "[图片]" : ""),
+							timestamp: time,
+						});
+					}
+					// 命中有效记录后结束尝试
+					break;
+				}
+			} catch (imErr) {
+				console.warn("[Scruff] IM messages fetch notice:", imErr);
+			}
+		}
+
+		// 2. 同时请求/平滑降级至原生 Scruff 接口 (/app/chat)，补齐原生交互与历史记录
+		try {
+			const res = await this.client.request<{
+				results?: Array<{
+					guid?: string;
+					id?: string | number;
+					sender?: string | number;
+					sender_id?: string | number;
+					recipient?: string | number;
+					recipient_id?: string | number;
+					message?: string;
+					message_type?: number;
+					created_at?: string | number;
+					timestamp?: number;
+					image_guid?: string;
+					photo_key?: string;
+				}>;
+			}>({
+				account,
+				method: "GET",
+				path: "/app/chat",
+				query: {
+					inbox_style: 2,
+					keep_unread: 0,
+					profile_id: targetProfileId,
+				},
+				timeoutMs: 12000,
+			});
+
+			const list = res.results || [];
+			for (const m of list) {
+				const time = m.timestamp
+					? m.timestamp > 1e11
+						? m.timestamp
+						: m.timestamp * 1000
+					: m.created_at
+						? new Date(m.created_at).getTime()
+						: Date.now();
+				const senderId = String(m.sender ?? m.sender_id ?? "");
+				const recipientId = String(m.recipient ?? m.recipient_id ?? "");
+				const isFromMe = Boolean(myId && senderId === myId);
+				const mediaKey = m.photo_key || m.image_guid;
+				const mediaUrl = mediaKey
+					? buildScruffPhotoUrl(mediaKey)
+					: undefined;
+				const msgId = String(m.guid || m.id || crypto.randomUUID());
+
+				if (!mergedMessagesMap.has(msgId)) {
+					mergedMessagesMap.set(msgId, {
+						channel: this.channel,
+						conversationId,
+						id: msgId,
+						isFromMe,
+						mediaUrl,
+						rawPayload: m,
+						recipientId,
+						senderId,
+						status: "delivered",
+						text: m.message || (mediaUrl ? "[图片]" : ""),
+						timestamp: time,
+					});
+				}
+			}
+		} catch (chatErr) {
+			console.warn(
+				"[Scruff] Native /app/chat fallback warning:",
+				chatErr,
+			);
+		}
+
+		return Array.from(mergedMessagesMap.values()).sort(
+			(a, b) => a.timestamp - b.timestamp,
+		);
 	}
 
 	async sendMessage(params: SendMessageParams): Promise<UniversalMessage> {

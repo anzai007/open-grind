@@ -21,6 +21,8 @@ export default defineConfig(
 	}),
 	{
 		rules: {
+			"svelte/max-lines-per-block": "off",
+			"max-lines": "off",
 			"@typescript-eslint/no-restricted-imports": [
 				"error",
 				{

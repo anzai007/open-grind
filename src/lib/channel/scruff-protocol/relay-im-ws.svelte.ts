@@ -36,15 +36,20 @@ export type RelayWsStatus = "disconnected" | "connecting" | "connected";
 
 export class RelayImWsClient {
 	status = $state<RelayWsStatus>("disconnected");
-	activePlatform = $state<"grindr" | "scruff" | "jackd" | "heesay" | null>(
-		null,
-	);
+	activePlatform = $state<
+		"grindr" | "scruff" | "jackd" | "heesay" | "sub" | null
+	>(null);
 	activeProfileId = $state<string | null>(null);
 	activeAccountIdentifier = $state<string | null>(null);
 
 	private socket: WebSocket | null = null;
-	private currentPlatform: "grindr" | "scruff" | "jackd" | "heesay" | null =
-		null;
+	private currentPlatform:
+		| "grindr"
+		| "scruff"
+		| "jackd"
+		| "heesay"
+		| "sub"
+		| null = null;
 	private currentAccount: ChannelAccount | null = null;
 	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	private reconnectAttempts = 0;
@@ -74,7 +79,7 @@ export class RelayImWsClient {
 	}
 
 	connect(
-		platform: "grindr" | "scruff" | "jackd" | "heesay",
+		platform: "grindr" | "scruff" | "jackd" | "heesay" | "sub",
 		account?: ChannelAccount,
 	): void {
 		if (
@@ -197,9 +202,30 @@ export class RelayImWsClient {
 					},
 				});
 
-				// 发送 userConnect 报文声明当前账号绑定
+				// 发送 userConnect 报文声明当前账号绑定，并在确认连通后通知外部刷新离线消息
 				if (this.activeProfileId) {
-					void this.sendUserConnect(this.activeProfileId);
+					void this.sendUserConnect(this.activeProfileId).then(
+						(ok) => {
+							if (ok) {
+								for (const listener of this.messageListeners) {
+									try {
+										listener({
+											type: "userUpdateNotify",
+											data: {
+												user: this.activeProfileId,
+												status: 3,
+											},
+										});
+									} catch (e) {
+										console.error(
+											"RelayImWs listener error:",
+											e,
+										);
+									}
+								}
+							}
+						},
+					);
 				}
 
 				this.startKeepAlive();
@@ -319,11 +345,10 @@ export class RelayImWsClient {
 				this.status === "connected" &&
 				this.socket?.readyState === WebSocket.OPEN
 			) {
-				// 发送轻量 keepalive 请求 (如 userList)
+				// 发送轻量 keepalive 请求 (如 userList，data 必须省略以符合 Sub 规范)
 				this.sendPacket({
 					requestId: this.nextReqId++,
 					type: "userList",
-					data: {},
 				}).catch(() => {
 					// keepalive failure handled by socket error/close
 				});
@@ -397,7 +422,7 @@ export class RelayImWsClient {
 		sender: string;
 		target: string;
 		text: string;
-		channel: "grindr" | "scruff" | "jackd" | "heesay";
+		channel: "grindr" | "scruff" | "jackd" | "heesay" | "sub";
 		conversationId?: string;
 		token?: string;
 	}): Promise<RelayMessageSendResult> {

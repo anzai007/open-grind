@@ -7,7 +7,23 @@ import {
 	DEFAULT_TEMPLATE_GROUPS,
 	DEFAULT_TEMPLATES,
 } from "./default-templates";
-import type { DmTemplate, DmTemplateGroup, SocialChannelType } from "./types";
+import {
+	CHANNEL_METAS,
+	type DmTemplate,
+	type DmTemplateGroup,
+	type SocialChannelType,
+} from "./types";
+
+export const DEFAULT_DIRECT_DM_TARGET_USER_IDS: Record<
+	SocialChannelType,
+	string
+> = {
+	scruff: "202040775",
+	heesay: "111117647",
+	jackd: "202279231",
+	sub: "1063461581229215744",
+	grindr: "",
+};
 
 const STORAGE_KEY_TEMPLATES = "og_channel_dm_templates_v1";
 const STORAGE_KEY_ACTIVE_GROUPS = "og_active_template_groups_v1";
@@ -20,9 +36,13 @@ export class TemplateState {
 		scruff: "scruff_casual_greetings_en",
 		jackd: "jackd_korean_casual_greetings",
 		heesay: "heesay_casual_greetings_zh",
+		sub: "sub_casual_greetings_zh",
 	});
 
 	isDialogOpen = $state(false);
+	isDirectDmOpen = $state(false);
+	directDmSelectedChannel = $state<SocialChannelType>("scruff");
+	directDmTargetUserId = $state("");
 	sendingUserIds = new SvelteSet<string>();
 
 	constructor() {
@@ -120,6 +140,29 @@ export class TemplateState {
 
 	closeDialog(): void {
 		this.isDialogOpen = false;
+	}
+
+	openDirectDmDialog(
+		options?: { channel?: SocialChannelType; userId?: string } | string,
+	): void {
+		let ch: SocialChannelType = channelState.activeChannel;
+		let uid: string | undefined;
+
+		if (typeof options === "string") {
+			uid = options;
+		} else if (options && typeof options === "object") {
+			if (options.channel) ch = options.channel;
+			if (options.userId) uid = options.userId;
+		}
+
+		this.directDmSelectedChannel = ch;
+		const defaultId = DEFAULT_DIRECT_DM_TARGET_USER_IDS[ch] || "";
+		this.directDmTargetUserId = uid?.trim() ? uid.trim() : defaultId;
+		this.isDirectDmOpen = true;
+	}
+
+	closeDirectDmDialog(): void {
+		this.isDirectDmOpen = false;
 	}
 
 	getGroups(channel: SocialChannelType): DmTemplateGroup[] {
@@ -244,11 +287,30 @@ export class TemplateState {
 				scruff: "scruff_casual_greetings_en",
 				jackd: "jackd_korean_casual_greetings",
 				heesay: "heesay_casual_greetings_zh",
+				sub: "sub_casual_greetings_zh",
 			};
 		}
 
 		this.recomputeGroups();
 		this.saveToStorage();
+	}
+
+	interpolateTemplate(
+		templateText: string,
+		targetUser?: { displayName?: string },
+	): string {
+		const processedText = templateText;
+		const rawName = targetUser?.displayName?.trim();
+		const cleanName =
+			rawName && !rawName.startsWith("User ") ? rawName : "";
+
+		return processedText
+			.replace(/\{\{\s*display_name\s*\}\}/gi, cleanName)
+			.replace(/\{\s*display_name\s*\}/gi, cleanName)
+			.replace(/\{\{\s*name\s*\}\}/gi, cleanName)
+			.replace(/\{\s*name\s*\}/gi, cleanName)
+			.replace(/\s+/g, " ")
+			.trim();
 	}
 
 	getRandomTemplate(
@@ -273,64 +335,79 @@ export class TemplateState {
 		const selected = availableTemplates[randomIndex]!;
 
 		// 智能插值变量：{name}、{{name}}、{display_name}、{{display_name}}
-		let processedText = selected.content;
-		const rawName = targetUser?.displayName?.trim();
-		const cleanName =
-			rawName && !rawName.startsWith("User ") ? rawName : "";
-
-		processedText = processedText
-			.replace(/\{\{\s*display_name\s*\}\}/gi, cleanName)
-			.replace(/\{\s*display_name\s*\}/gi, cleanName)
-			.replace(/\{\{\s*name\s*\}\}/gi, cleanName)
-			.replace(/\{\s*name\s*\}/gi, cleanName)
-			.replace(/\s+/g, " ")
-			.trim();
+		const processedText = this.interpolateTemplate(
+			selected.content,
+			targetUser,
+		);
 
 		return { text: processedText, template: selected };
 	}
 
-	async sendQuickDm(user: {
-		id: string;
-		displayName: string;
-		avatarThumbnailUrl?: string;
-	}): Promise<{ success: boolean; text?: string; error?: string }> {
-		const channel = channelState.activeChannel;
-		const userIdStr = String(user.id);
+	async sendQuickDm(
+		user: { id: string; displayName?: string; avatarThumbnailUrl?: string },
+		customText?: string,
+		channelOverride?: SocialChannelType,
+	): Promise<{ success: boolean; text?: string; error?: string }> {
+		const channel = channelOverride ?? channelState.activeChannel;
+		const userIdStr = String(user.id).trim();
+
+		if (!userIdStr) {
+			const toastId = toast.error("目标用户ID不能为空", {
+				duration: 2000,
+				closeButton: true,
+			});
+			setTimeout(() => toast.dismiss(toastId), 2000);
+			return { success: false, error: "目标用户ID不能为空" };
+		}
 
 		if (this.sendingUserIds.has(userIdStr)) {
 			return { success: false, error: "正在发送中，请勿重复点击" };
 		}
 
-		if (channel !== "grindr") {
-			const account = channelState.currentAccount;
-			if (!account) {
-				const toastId = toast.error(
-					"当前渠道尚未登录账号，请在右上角添加或选择账号",
-					{ duration: 2000, closeButton: true },
-				);
-				setTimeout(() => toast.dismiss(toastId), 2000);
-				channelState.openAccountDialog();
-				return { success: false, error: "未登录账号" };
-			}
+		// 解析指定渠道所使用的账号
+		let account =
+			channel === channelState.activeChannel
+				? channelState.currentAccount
+				: undefined;
+
+		if (!account && channel !== "grindr") {
+			const activeId = channelState.activeAccountIds[channel];
+			account = activeId
+				? channelState.accounts[channel].find((a) => a.id === activeId)
+				: channelState.accounts[channel][0];
 		}
 
-		const pick = this.getRandomTemplate(channel, user);
-		if (!pick) {
+		if (channel !== "grindr" && !account) {
 			const toastId = toast.error(
-				`当前 ${channelState.currentMeta.name} 渠道未配置或未启用私信模版，请先在右上角管理私信模版`,
+				`当前 ${CHANNEL_METAS[channel].name} 渠道尚未登录账号，请在右上角添加或选择账号`,
 				{ duration: 2000, closeButton: true },
 			);
 			setTimeout(() => toast.dismiss(toastId), 2000);
-			this.openDialog();
-			return { success: false, error: "未配置可用模版" };
+			channelState.openAccountDialog(channel);
+			return { success: false, error: "未登录账号" };
+		}
+
+		let text = customText?.trim();
+		if (!text) {
+			const pick = this.getRandomTemplate(channel, user);
+			if (!pick) {
+				const toastId = toast.error(
+					`当前 ${CHANNEL_METAS[channel].name} 渠道未配置或未启用私信模版，请先在右上角管理私信模版`,
+					{ duration: 2000, closeButton: true },
+				);
+				setTimeout(() => toast.dismiss(toastId), 2000);
+				this.openDialog();
+				return { success: false, error: "未配置可用模版" };
+			}
+			text = pick.text;
 		}
 
 		this.sendingUserIds.add(userIdStr);
 
 		try {
-			const provider = channelState.currentProvider;
-			const account = channelState.currentAccount;
-			const text = pick.text;
+			const provider =
+				channelState.getProvider(channel) ??
+				channelState.currentProvider;
 
 			const sentMessage = await provider.sendMessage({
 				account,
@@ -343,15 +420,16 @@ export class TemplateState {
 				channelChatState.recordSentMessage(
 					{
 						id: userIdStr,
-						displayName: user.displayName,
+						displayName: user.displayName || `User ${userIdStr}`,
 						avatarThumbnailUrl: user.avatarThumbnailUrl,
 					},
 					sentMessage,
 				);
 			}
 
+			const displayName = user.displayName || `ID: ${userIdStr}`;
 			const toastId = toast.success(
-				`已向 ${user.displayName || "对方"} 发送快捷私信：\n"${text}"`,
+				`已向 ${displayName} 发送快捷私信：\n"${text}"`,
 				{ duration: 2000, closeButton: true },
 			);
 			setTimeout(() => {

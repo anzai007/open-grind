@@ -14,6 +14,7 @@ import { GrindrProvider } from "./providers/grindr-provider";
 import { HeesayProvider } from "./providers/heesay-provider";
 import { JackdProvider } from "./providers/jackd-provider";
 import { ScruffProvider } from "./providers/scruff-provider";
+import { SubProvider } from "./providers/sub-provider";
 import {
 	CHANNEL_METAS,
 	type ChannelAccount,
@@ -35,12 +36,14 @@ export class ChannelState {
 		scruff: [],
 		jackd: [],
 		heesay: [],
+		sub: [],
 	});
 	activeAccountIds = $state<Record<SocialChannelType, string | null>>({
 		grindr: null,
 		scruff: null,
 		jackd: null,
 		heesay: null,
+		sub: null,
 	});
 	grindrLastGeohash = $state<string | null>(null);
 	isAccountDialogOpen = $state(false);
@@ -59,6 +62,7 @@ export class ChannelState {
 		this.registerProvider("scruff", new ScruffProvider());
 		this.registerProvider("jackd", new JackdProvider());
 		this.registerProvider("heesay", new HeesayProvider());
+		this.registerProvider("sub", new SubProvider());
 		this.loadFromStorage();
 		void this.syncGrindrSessionAccount();
 		if (this.activeChannel !== "grindr") {
@@ -390,7 +394,9 @@ export class ChannelState {
 			) as SocialChannelType | null;
 			if (
 				savedChannel &&
-				["grindr", "scruff", "jackd", "heesay"].includes(savedChannel)
+				["grindr", "scruff", "jackd", "heesay", "sub"].includes(
+					savedChannel,
+				)
 			) {
 				this.activeChannel = savedChannel;
 			}
@@ -413,6 +419,9 @@ export class ChannelState {
 						: [];
 					this.accounts.heesay = Array.isArray(parsed.heesay)
 						? (parsed.heesay as ChannelAccount[])
+						: [];
+					this.accounts.sub = Array.isArray(parsed.sub)
+						? (parsed.sub as ChannelAccount[])
 						: [];
 				}
 			}
@@ -441,6 +450,7 @@ export class ChannelState {
 							typeof parsed.heesay === "string"
 								? parsed.heesay
 								: null,
+						sub: typeof parsed.sub === "string" ? parsed.sub : null,
 					};
 				}
 			}
@@ -452,7 +462,7 @@ export class ChannelState {
 			}
 
 			// 校验与自愈账号绑定的定位点：修复历史逻辑可能带来的异地覆盖污染
-			for (const ch of ["scruff", "jackd", "heesay"] as const) {
+			for (const ch of ["scruff", "jackd", "heesay", "sub"] as const) {
 				for (const acc of this.accounts[ch]) {
 					resolveGeohashForAccount(acc);
 				}
