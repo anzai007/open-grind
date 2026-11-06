@@ -3,6 +3,7 @@
 	import ArrowsClockwiseIcon from "phosphor-svelte/lib/ArrowsClockwiseIcon";
 	import ChatCircleDotsIcon from "phosphor-svelte/lib/ChatCircleDotsIcon";
 	import HandWavingIcon from "phosphor-svelte/lib/HandWavingIcon";
+	import HeartIcon from "phosphor-svelte/lib/HeartIcon";
 	import PawPrintIcon from "phosphor-svelte/lib/PawPrintIcon";
 	import { toast } from "svelte-sonner";
 
@@ -21,8 +22,11 @@
 
 	const currentMeta = $derived(channelState.currentMeta);
 	const currentAccount = $derived(channelState.currentAccount);
-	const hasAccount = $derived(Boolean(currentAccount));
+	const hasAccount = $derived(
+		channelState.activeChannel === "sub" || Boolean(currentAccount),
+	);
 	const isJackd = $derived(channelState.activeChannel === "jackd");
+	const isSub = $derived(channelState.activeChannel === "sub");
 
 	let lastScopeKey: string | null = null;
 	let hasLoadedForScope = false;
@@ -282,7 +286,9 @@
 										>
 											{#if isJackd}
 												👋
-											{:else if channelState.activeChannel === "heesay" || channelState.activeChannel === "sub"}
+											{:else if isSub}
+												❤️
+											{:else if channelState.activeChannel === "heesay"}
 												💬
 											{:else}
 												🐾
@@ -345,14 +351,19 @@
 									>
 										{#if isJackd}
 											<HandWavingIcon class="size-3.5" />
-										{:else if channelState.activeChannel === "heesay" || channelState.activeChannel === "sub"}
+										{:else if isSub}
+											<HeartIcon
+												class="size-3.5 text-rose-500"
+												weight="fill"
+											/>
+										{:else if channelState.activeChannel === "heesay"}
 											<ChatCircleDotsIcon
 												class="size-3.5"
 											/>
 										{:else}
 											<PawPrintIcon class="size-3.5" />
 										{/if}
-										<span>回发</span>
+										<span>{isSub ? "回赞" : "回发"}</span>
 									</Button>
 									<Button
 										variant="ghost"

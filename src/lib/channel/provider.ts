@@ -35,6 +35,7 @@ export interface SendMessageParams {
 	conversationId?: string;
 	targetUserId: string;
 	text: string;
+	mediaUrl?: string;
 	account?: ChannelAccount;
 }
 

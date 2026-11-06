@@ -1,4 +1,3 @@
- 
 import { SvelteDate, SvelteMap, SvelteSet } from "svelte/reactivity";
 
 import { channelGridState } from "./channel-grid-state.svelte";
@@ -393,10 +392,14 @@ export class ChannelChatState {
 		this.conversationsStore.set(scope, this.conversations);
 		this.saveToStorage();
 
-		// 3. 异步水合用户信息
+		// 3. 异步水合用户信息：若缺失头像、未转换为 Data URL、或仍为占位昵称，立即异步水合对方资料与头像
 		if (
 			conv.targetUserId &&
-			(!conv.targetAvatarUrl || conv.targetUserName.startsWith("User "))
+			(!conv.targetAvatarUrl ||
+				(channel === "sub" &&
+					!conv.targetAvatarUrl.startsWith("data:")) ||
+				conv.targetUserName.startsWith("User ") ||
+				conv.targetUserName.startsWith("Sub "))
 		) {
 			void this.hydrateConversationUser(conv.targetUserId);
 		}
@@ -564,7 +567,10 @@ export class ChannelChatState {
 				if (
 					item.targetUserId &&
 					(!item.targetAvatarUrl ||
-						item.targetUserName.startsWith("User "))
+						(channel === "sub" &&
+							!item.targetAvatarUrl.startsWith("data:")) ||
+						item.targetUserName.startsWith("User ") ||
+						item.targetUserName.startsWith("Sub "))
 				) {
 					void this.hydrateConversationUser(item.targetUserId);
 				}
@@ -1147,7 +1153,11 @@ export class ChannelChatState {
 
 		if (
 			conv.targetUserId &&
-			(!conv.targetAvatarUrl || conv.targetUserName.startsWith("User "))
+			(!conv.targetAvatarUrl ||
+				(conv.channel === "sub" &&
+					!conv.targetAvatarUrl.startsWith("data:")) ||
+				conv.targetUserName.startsWith("User ") ||
+				conv.targetUserName.startsWith("Sub "))
 		) {
 			void this.hydrateConversationUser(conv.targetUserId);
 		}

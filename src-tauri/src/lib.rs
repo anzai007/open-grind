@@ -223,6 +223,7 @@ pub fn run() {
             api::rest::request,
             api::rest::fetch_external,
             api::relay::relay_http_request,
+            api::relay::fetch_image_data_url,
             api::network_logger::open_network_logger_window,
             api::network_logger::close_network_logger_window,
             media::media_failure,

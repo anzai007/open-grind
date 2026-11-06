@@ -18,6 +18,10 @@ import {
 	verifySubAccount,
 } from "../sub-protocol/sub-account-verifier";
 import {
+	hydrateSubGridAvatars,
+	resolveSubImageDataUrl,
+} from "../sub-protocol/sub-image-resolver";
+import {
 	parseRawSubProfile,
 	parseSubGridUser,
 	type RawSubProfile,
@@ -78,11 +82,84 @@ export class SubProvider implements SocialChannelProvider {
 		params: NearbyQueryParams,
 	): Promise<PageResult<UniversalGridUser>> {
 		const offset = params.offset ?? 0;
-		const limit = 24;
+		const limit = params.limit ?? 24;
 		const page = Math.floor(offset / limit) + 1;
 		const account = await this.ensureAccountProxy(params.account);
 
-		// 1. 优先尝试从本地/自建 ai-growth 用户池服务拉取真实候选用户
+		const myId =
+			(account?.extraMeta?.profileId as string | undefined) ||
+			account?.accountIdentifier ||
+			"17356066556";
+
+		// 1. 优先调用 Sub 官方中继附近用户 API (sub.nearby_users: /fem/api/appUserNode/findList)
+		try {
+			const res = await this.client.request<{
+				status?: string | number;
+				data?: RawSubProfile[];
+			}>({
+				account,
+				headers: {
+					Accept: "application/json",
+					"omni-account": myId,
+					"omni-platform": "sub",
+				},
+				method: "GET",
+				path: "https://omni-relay.toonhub.top/fem/api/appUserNode/findList",
+				query: {
+					excludeWithOutAvatar: 1,
+					hideNearby: 0,
+					lat: params.lat,
+					lng: params.lon,
+					pageNo: page,
+					pageSize: limit,
+				},
+				timeoutMs: 6000,
+			});
+
+			const rawList: RawSubProfile[] = Array.isArray(res.data)
+				? res.data
+				: Array.isArray(
+							(
+								res.data as unknown as {
+									records?: RawSubProfile[];
+								}
+							)?.records,
+					  )
+					? (res.data as unknown as { records: RawSubProfile[] })
+							.records
+					: Array.isArray(
+								(
+									res.data as unknown as {
+										list?: RawSubProfile[];
+									}
+								)?.list,
+						  )
+						? (res.data as unknown as { list: RawSubProfile[] })
+								.list
+						: [];
+			if (rawList.length > 0) {
+				const items: UniversalGridUser[] =
+					rawList.map(parseSubGridUser);
+				await hydrateSubGridAvatars(items);
+				const hasNext = items.length >= limit;
+				const total = offset + items.length + (hasNext ? limit : 0);
+
+				return {
+					hasNext,
+					items,
+					nextOffset: hasNext ? offset + items.length : undefined,
+					offset,
+					total,
+				};
+			}
+		} catch (err) {
+			console.warn(
+				"Sub findList nearby API failed, trying fallback:",
+				err,
+			);
+		}
+
+		// 2. 降级方案 A：从本地/自建 ai-growth 用户池服务拉取候选用户
 		try {
 			const res = await this.client.request<{
 				code?: number;
@@ -101,6 +178,7 @@ export class SubProvider implements SocialChannelProvider {
 			if (rawList.length > 0) {
 				const items: UniversalGridUser[] =
 					rawList.map(parseSubGridUser);
+				await hydrateSubGridAvatars(items);
 				const total = res.data?.total || res.total || items.length;
 				const canHaveMore = offset + items.length < total;
 
@@ -113,10 +191,10 @@ export class SubProvider implements SocialChannelProvider {
 				};
 			}
 		} catch {
-			// ai-growth 用户池不可达或未登录时，优雅降级
+			// ai-growth 用户池不可达时继续降级
 		}
 
-		// 2. 降级方案：从中继已登记的平台账号与最近会话伙伴中提取候选人
+		// 3. 降级方案 B：从中继已登记的平台账号与最近会话伙伴中提取候选人
 		const fallbackItems: UniversalGridUser[] = [];
 		const seenIds = new Set<string>();
 
@@ -159,13 +237,13 @@ export class SubProvider implements SocialChannelProvider {
 			// ignore
 		}
 
-		// 3. 从已有会话列表中提取活跃联系人
-		const myId =
+		// 4. 从已有会话列表中提取活跃联系人
+		const activeConvId =
 			(account?.extraMeta?.profileId as string | undefined) ||
 			account?.accountIdentifier ||
 			"";
 
-		if (myId) {
+		if (activeConvId) {
 			try {
 				const convsRes = await this.client.request<{
 					ret?: boolean;
@@ -174,13 +252,13 @@ export class SubProvider implements SocialChannelProvider {
 					account,
 					method: "GET",
 					path: "/_private/im/conversations",
-					query: { platform: "sub", user: myId },
+					query: { platform: "sub", user: activeConvId },
 					timeoutMs: 4000,
 				});
 
 				const list = convsRes.data || [];
 				for (const c of list) {
-					const targetId = resolvePartnerProfileId(c, myId);
+					const targetId = resolvePartnerProfileId(c, activeConvId);
 					if (!targetId || seenIds.has(targetId)) continue;
 					seenIds.add(targetId);
 
@@ -228,8 +306,176 @@ export class SubProvider implements SocialChannelProvider {
 		}
 
 		const effAccount = await this.ensureAccountProxy(account);
+		const myId =
+			(effAccount?.extraMeta?.profileId as string | undefined) ||
+			effAccount?.accountIdentifier ||
+			"17356066556";
 
-		// 1. 优先尝试从本地/自建 ai-growth 接口查询详情
+		// 1. 优先调用 Sub 官方中继用户详情接口 (sub.user_info: /fem/api/appUser/appUserInfo)
+		try {
+			const res = await this.client.request<{
+				status?: string | number;
+				data?: RawSubProfile | RawSubProfile[];
+			}>({
+				account: effAccount,
+				headers: {
+					Accept: "application/json",
+					"omni-account": myId,
+					"omni-platform": "sub",
+				},
+				method: "GET",
+				path: `https://omni-relay.toonhub.top/fem/api/appUser/appUserInfo?appUserId=${encodeURIComponent(userId)}`,
+				timeoutMs: 5000,
+			});
+
+			const p = Array.isArray(res.data) ? res.data[0] : res.data;
+			if (p && (p.userName || p.avatar || p.id || p.userId)) {
+				const parsed = parseRawSubProfile(p);
+
+				// 异步尝试从相册补齐更多照片 (sub.private_albums)
+				try {
+					const photoRes = await this.client.request<{
+						data?: Array<{
+							file?: {
+								webAddr?: string;
+								saveAddr?: string;
+								miniImageUrl?: string;
+							};
+							isAvatar?: string | number;
+						}>;
+					}>({
+						account: effAccount,
+						headers: {
+							Accept: "application/json",
+							"omni-account": myId,
+							"omni-platform": "sub",
+						},
+						method: "GET",
+						path: `https://omni-relay.toonhub.top/fem/api/appUserPhoto/findList?pageNo=1&pageSize=20&userId=${encodeURIComponent(userId)}`,
+						timeoutMs: 3000,
+					});
+
+					const photosList = photoRes.data || [];
+					for (const item of photosList) {
+						const f = item.file;
+						const addr =
+							f?.webAddr || f?.saveAddr || f?.miniImageUrl;
+						if (addr) {
+							const fullUrl = subMediaUrl(addr);
+							if (
+								fullUrl &&
+								!parsed.photos.some(
+									(ph) => ph.fullsizeUrl === fullUrl,
+								)
+							) {
+								parsed.photos.push({
+									fullsizeUrl: fullUrl,
+									isAvatar:
+										item.isAvatar === "1" ||
+										item.isAvatar === 1,
+									thumbnailUrl: fullUrl,
+								});
+							}
+						}
+					}
+				} catch {
+					// 相册非关键链路，忽略异常
+				}
+
+				// 预解析相册照片为 Data URL 避免 WebKit 拦截
+				await Promise.allSettled(
+					parsed.photos.map(async (photo) => {
+						if (
+							photo.thumbnailUrl?.startsWith(
+								"https://images.sublifeapp.com/",
+							)
+						) {
+							photo.thumbnailUrl = await resolveSubImageDataUrl(
+								photo.thumbnailUrl,
+							);
+						}
+						if (
+							photo.fullsizeUrl?.startsWith(
+								"https://images.sublifeapp.com/",
+							)
+						) {
+							photo.fullsizeUrl = await resolveSubImageDataUrl(
+								photo.fullsizeUrl,
+							);
+						}
+					}),
+				);
+
+				this.profileDetailCache.set(userId, {
+					expiresAt: Date.now() + 15 * 60 * 1000,
+					profile: parsed,
+				});
+				return parsed;
+			}
+		} catch (err) {
+			console.warn(
+				"Sub appUserInfo failed, trying cache or ai-growth:",
+				err,
+			);
+		}
+
+		// 2. 降级方案 A：从缓存接口快速获取 (sub.user_info_cache: /fem/api/appUser/cacheAppUserInfo)
+		try {
+			const cacheRes = await this.client.request<{
+				status?: string | number;
+				data?: RawSubProfile | RawSubProfile[];
+			}>({
+				account: effAccount,
+				headers: {
+					Accept: "application/json",
+					"omni-account": myId,
+					"omni-platform": "sub",
+				},
+				method: "GET",
+				path: `https://omni-relay.toonhub.top/fem/api/appUser/cacheAppUserInfo?appUserId=${encodeURIComponent(userId)}`,
+				timeoutMs: 4000,
+			});
+
+			const p = Array.isArray(cacheRes.data)
+				? cacheRes.data[0]
+				: cacheRes.data;
+			if (p && (p.userName || p.avatar || p.id || p.userId)) {
+				const parsed = parseRawSubProfile(p);
+				// 预解析相册照片为 Data URL 避免 WebKit 拦截
+				await Promise.allSettled(
+					parsed.photos.map(async (photo) => {
+						if (
+							photo.thumbnailUrl?.startsWith(
+								"https://images.sublifeapp.com/",
+							)
+						) {
+							photo.thumbnailUrl = await resolveSubImageDataUrl(
+								photo.thumbnailUrl,
+							);
+						}
+						if (
+							photo.fullsizeUrl?.startsWith(
+								"https://images.sublifeapp.com/",
+							)
+						) {
+							photo.fullsizeUrl = await resolveSubImageDataUrl(
+								photo.fullsizeUrl,
+							);
+						}
+					}),
+				);
+
+				this.profileDetailCache.set(userId, {
+					expiresAt: Date.now() + 15 * 60 * 1000,
+					profile: parsed,
+				});
+				return parsed;
+			}
+		} catch {
+			// ignore
+		}
+
+		// 3. 降级方案 B：从本地/自建 ai-growth 接口查询详情
 		try {
 			const res = await this.client.request<{
 				code?: number;
@@ -238,12 +484,36 @@ export class SubProvider implements SocialChannelProvider {
 				account: effAccount,
 				method: "GET",
 				path: `/_ai_growth_api/api/social-touch/sub/user-pool/${encodeURIComponent(userId)}`,
-				timeoutMs: 5000,
+				timeoutMs: 4000,
 			});
 
 			const p = Array.isArray(res.data) ? res.data[0] : res.data;
 			if (p) {
 				const parsed = parseRawSubProfile(p);
+				// 预解析相册照片为 Data URL 避免 WebKit 拦截
+				await Promise.allSettled(
+					parsed.photos.map(async (photo) => {
+						if (
+							photo.thumbnailUrl?.startsWith(
+								"https://images.sublifeapp.com/",
+							)
+						) {
+							photo.thumbnailUrl = await resolveSubImageDataUrl(
+								photo.thumbnailUrl,
+							);
+						}
+						if (
+							photo.fullsizeUrl?.startsWith(
+								"https://images.sublifeapp.com/",
+							)
+						) {
+							photo.fullsizeUrl = await resolveSubImageDataUrl(
+								photo.fullsizeUrl,
+							);
+						}
+					}),
+				);
+
 				this.profileDetailCache.set(userId, {
 					expiresAt: Date.now() + 15 * 60 * 1000,
 					profile: parsed,
@@ -254,7 +524,7 @@ export class SubProvider implements SocialChannelProvider {
 			// 降级使用基础档案
 		}
 
-		// 2. 兜底生成基础资料对象
+		// 4. 兜底生成基础资料对象
 		const fallbackProfile: UniversalUserProfile = {
 			about: "Sub 平台用户",
 			channel: this.channel,
@@ -300,10 +570,15 @@ export class SubProvider implements SocialChannelProvider {
 				? this.profileDetailCache.get(targetId)?.profile
 				: undefined;
 
-			const avatarUrl =
+			const rawConvAvatar =
 				(c.target_avatar_url as string) ||
 				(c.targetAvatarUrl as string) ||
-				(c.avatar as string) ||
+				(typeof c.avatar === "string" && !/^\d+$/.test(c.avatar.trim())
+					? c.avatar
+					: undefined);
+
+			const avatarUrl =
+				rawConvAvatar ||
 				cachedProfile?.photos.find((p) => p.isAvatar)?.thumbnailUrl ||
 				cachedProfile?.photos[0]?.thumbnailUrl;
 
@@ -428,6 +703,21 @@ export class SubProvider implements SocialChannelProvider {
 			);
 		}
 
+		await Promise.allSettled(
+			items.map(async (conv) => {
+				if (
+					conv.targetAvatarUrl &&
+					conv.targetAvatarUrl.startsWith(
+						"https://images.sublifeapp.com/",
+					)
+				) {
+					conv.targetAvatarUrl = await resolveSubImageDataUrl(
+						conv.targetAvatarUrl,
+					);
+				}
+			}),
+		);
+
 		return {
 			hasNext: false,
 			items,
@@ -541,21 +831,39 @@ export class SubProvider implements SocialChannelProvider {
 
 		let guid: string = crypto.randomUUID();
 		let messageTimestamp = Date.now();
+		const mediaUrl = params.mediaUrl
+			? subMediaUrl(params.mediaUrl)
+			: undefined;
 
 		// 1. 优先尝试走 WSS 统一长链模式 (WebSocket messageSend)
 		if (relayImWs.connected && myId !== "me") {
 			try {
-				const wsResult = await relayImWs.sendTextMessage({
-					channel: "sub",
-					conversationId: params.conversationId,
-					sender: myId,
-					target: targetUserId,
-					text: params.text,
-				});
-				if (wsResult.messageId) {
+				let wsResult:
+					| { messageId?: string; senderTime?: string }
+					| undefined;
+
+				if (mediaUrl) {
+					wsResult = await relayImWs.sendImageMessage({
+						channel: "sub",
+						conversationId: params.conversationId,
+						imageUrl: mediaUrl,
+						sender: myId,
+						target: targetUserId,
+					});
+				} else {
+					wsResult = await relayImWs.sendTextMessage({
+						channel: "sub",
+						conversationId: params.conversationId,
+						sender: myId,
+						target: targetUserId,
+						text: params.text,
+					});
+				}
+
+				if (wsResult?.messageId) {
 					guid = wsResult.messageId;
 				}
-				if (wsResult.senderTime) {
+				if (wsResult?.senderTime) {
 					messageTimestamp = new Date(wsResult.senderTime).getTime();
 				}
 				return {
@@ -563,10 +871,11 @@ export class SubProvider implements SocialChannelProvider {
 					conversationId: params.conversationId || targetUserId,
 					id: guid,
 					isFromMe: true,
+					mediaUrl,
 					recipientId: targetUserId,
 					senderId: myId,
 					status: "sent",
-					text: params.text,
+					text: params.text || (mediaUrl ? "[图片]" : ""),
 					timestamp: messageTimestamp,
 				};
 			} catch (wsErr) {
@@ -582,10 +891,11 @@ export class SubProvider implements SocialChannelProvider {
 			conversationId: params.conversationId || targetUserId,
 			id: guid,
 			isFromMe: true,
+			mediaUrl,
 			recipientId: targetUserId,
 			senderId: myId,
 			status: "sent",
-			text: params.text,
+			text: params.text || (mediaUrl ? "[图片]" : ""),
 			timestamp: messageTimestamp,
 		};
 	}
@@ -594,16 +904,45 @@ export class SubProvider implements SocialChannelProvider {
 		targetUserId: string,
 		account?: ChannelAccount,
 	): Promise<UniversalInteractionResult> {
-		// Sub 打招呼 (Say Hi) 互动
+		const effAccount = await this.ensureAccountProxy(account);
+		const myId =
+			(effAccount?.extraMeta?.profileId as string | undefined) ||
+			effAccount?.accountIdentifier ||
+			"17356066556";
+
+		// 1. 调用 Sub 官方中继 喜欢/取消喜欢 接口 (sub.save_relationship: /fem/api/appUserNode/saveRelationship)
 		try {
-			await this.sendMessage({ account, targetUserId, text: "你好 👋" });
+			await this.client.request({
+				account: effAccount,
+				body: { isLike: "1", targetUserId },
+				headers: {
+					Accept: "application/json",
+					"Content-Type": "application/json",
+					"omni-account": myId,
+					"omni-platform": "sub",
+				},
+				method: "POST",
+				path: "https://omni-relay.toonhub.top/fem/api/appUserNode/saveRelationship",
+				timeoutMs: 5000,
+			});
 		} catch (err) {
-			console.warn("Sub Say Hi interaction fallback:", err);
+			console.warn("Sub saveRelationship interaction failed:", err);
+		}
+
+		// 2. 同时发送打招呼触达消息
+		try {
+			await this.sendMessage({
+				account: effAccount,
+				targetUserId,
+				text: "你好 👋",
+			});
+		} catch {
+			// ignore
 		}
 
 		return {
 			interactionType: "say_hi",
-			message: "已向对方发送打招呼 (Say Hi)",
+			message: "已向对方发送喜欢与打招呼 (Like / Say Hi)",
 			success: true,
 			targetUserId,
 		};
@@ -618,8 +957,82 @@ export class SubProvider implements SocialChannelProvider {
 	}
 
 	async getViewers(account?: ChannelAccount): Promise<UniversalGridUser[]> {
+		const effAccount = await this.ensureAccountProxy(account);
+		const myId =
+			(effAccount?.extraMeta?.profileId as string | undefined) ||
+			effAccount?.accountIdentifier ||
+			"";
+
+		if (myId) {
+			// 1. 尝试从 Sub 官方访客记录接口拉取 (sub.profile_visitors: /fem/api/appAccessRecord/findList)
+			try {
+				const res = await this.client.request<{
+					status?: string | number;
+					data?: Array<
+						RawSubProfile & {
+							appUser?: RawSubProfile;
+							visitor?: RawSubProfile;
+						}
+					>;
+				}>({
+					account: effAccount,
+					headers: {
+						Accept: "application/json",
+						"omni-account": myId,
+						"omni-platform": "sub",
+					},
+					method: "GET",
+					path: `https://omni-relay.toonhub.top/fem/api/appAccessRecord/findList?pageNo=1&pageSize=20&targetUserId=${encodeURIComponent(myId)}`,
+					timeoutMs: 4000,
+				});
+
+				const rawData = res.data as
+					| Array<
+							RawSubProfile & {
+								appUser?: RawSubProfile;
+								visitor?: RawSubProfile;
+							}
+					  >
+					| {
+							records?: Array<
+								RawSubProfile & {
+									appUser?: RawSubProfile;
+									visitor?: RawSubProfile;
+								}
+							>;
+							list?: Array<
+								RawSubProfile & {
+									appUser?: RawSubProfile;
+									visitor?: RawSubProfile;
+								}
+							>;
+					  }
+					| undefined;
+
+				const list = Array.isArray(rawData)
+					? rawData
+					: Array.isArray(rawData?.records)
+						? rawData.records
+						: Array.isArray(rawData?.list)
+							? rawData.list
+							: [];
+				if (list.length > 0) {
+					return list.map((item) => {
+						const userObj = item.appUser || item.visitor || item;
+						return parseSubGridUser(userObj);
+					});
+				}
+			} catch (err) {
+				console.warn(
+					"Sub profile_visitors failed, falling back to conversations:",
+					err,
+				);
+			}
+		}
+
+		// 2. 降级从活跃会话中拉取访客/联系人
 		try {
-			const res = await this.getConversations({ account });
+			const res = await this.getConversations({ account: effAccount });
 			return res.items
 				.slice(0, 20)
 				.map((c) => ({

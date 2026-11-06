@@ -13,6 +13,7 @@
 	import { Spinner } from "$lib/components/ui/spinner";
 	import { channelChatState } from "../channel-chat-state.svelte";
 	import { channelState } from "../channel-state.svelte";
+	import { resolveSubImageDataUrl } from "../sub-protocol/sub-image-resolver";
 	import { templateState } from "../template-state.svelte";
 	import ChannelMessageBubble from "./ChannelMessageBubble.svelte";
 	import ChannelNoAccountEmpty from "./ChannelNoAccountEmpty.svelte";
@@ -25,6 +26,7 @@
 	const activeConv = $derived(channelChatState.activeConversation);
 	const hasAccount = $derived(
 		channelState.activeChannel === "grindr" ||
+			channelState.activeChannel === "sub" ||
 			(channelState.accounts[channelState.activeChannel]?.length ?? 0) >
 				0,
 	);
@@ -282,6 +284,30 @@
 										src={conv.targetAvatarUrl}
 										alt={conv.targetUserName}
 										class="h-full w-full object-cover"
+										referrerpolicy="no-referrer"
+										onerror={async (e) => {
+											const target =
+												e.currentTarget as HTMLImageElement;
+											if (
+												conv.targetAvatarUrl &&
+												conv.targetAvatarUrl.startsWith(
+													"https://images.sublifeapp.com/",
+												)
+											) {
+												const dataUrl =
+													await resolveSubImageDataUrl(
+														conv.targetAvatarUrl,
+													);
+												if (
+													dataUrl &&
+													dataUrl !== target.src
+												) {
+													target.src = dataUrl;
+													conv.targetAvatarUrl =
+														dataUrl;
+												}
+											}
+										}}
 									/>
 								{:else}
 									<div
@@ -357,6 +383,30 @@
 									src={activeConv.targetAvatarUrl}
 									alt={activeConv.targetUserName}
 									class="h-full w-full object-cover"
+									referrerpolicy="no-referrer"
+									onerror={async (e) => {
+										const target =
+											e.currentTarget as HTMLImageElement;
+										if (
+											activeConv.targetAvatarUrl &&
+											activeConv.targetAvatarUrl.startsWith(
+												"https://images.sublifeapp.com/",
+											)
+										) {
+											const dataUrl =
+												await resolveSubImageDataUrl(
+													activeConv.targetAvatarUrl,
+												);
+											if (
+												dataUrl &&
+												dataUrl !== target.src
+											) {
+												target.src = dataUrl;
+												activeConv.targetAvatarUrl =
+													dataUrl;
+											}
+										}
+									}}
 								/>
 							{:else}
 								<div

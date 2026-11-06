@@ -418,6 +418,46 @@ export class RelayImWsClient {
 		}
 	}
 
+	async sendUserDisconnect(user: string): Promise<boolean> {
+		if (!user) return false;
+		try {
+			await this.sendPacket(
+				{
+					requestId: this.nextReqId++,
+					type: "userDisconnect",
+					data: { user },
+				},
+				6000,
+			);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	async getUserList(): Promise<Array<{ user: string; status: number }>> {
+		try {
+			const res = await this.sendPacket<
+				| Array<{
+						requestId?: number;
+						type?: string;
+						data?: Array<{ user: string; status: number }>;
+				  }>
+				| { data?: Array<{ user: string; status: number }> }
+			>({ requestId: this.nextReqId++, type: "userList" }, 6000);
+
+			if (Array.isArray(res) && res[0]?.data) {
+				return res[0].data;
+			}
+			if (res && "data" in res && Array.isArray(res.data)) {
+				return res.data;
+			}
+			return [];
+		} catch {
+			return [];
+		}
+	}
+
 	async sendTextMessage(params: {
 		sender: string;
 		target: string;
@@ -452,6 +492,57 @@ export class RelayImWsClient {
 		const res = await this.sendPacket<
 			RelayMessageSendResult | { messageId?: string; senderTime?: string }
 		>({ requestId: this.nextReqId++, type: "messageSend", data }, 12000);
+
+		return {
+			messageId: res?.messageId || messageId,
+			senderTime: res?.senderTime || senderTime,
+			conversationId,
+		};
+	}
+
+	async sendImageMessage(params: {
+		sender: string;
+		target: string;
+		imageUrl: string;
+		channel: "grindr" | "scruff" | "jackd" | "heesay" | "sub";
+		conversationId?: string;
+		width?: number;
+		height?: number;
+		token?: string;
+	}): Promise<RelayMessageSendResult> {
+		const messageId = `${params.channel}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+		const conversationId =
+			params.conversationId || `${params.sender}:${params.target}`;
+		const senderTime = new SvelteDate().toISOString();
+
+		const data: Record<string, unknown> = {
+			messageId,
+			conversationId,
+			sender: params.sender,
+			target: params.target,
+			senderTime,
+			messageType: "image",
+			messageContent: null,
+			attachment: {
+				type: "image",
+				metadata: {
+					url: params.imageUrl,
+					width: params.width || 1080,
+					height: params.height || 1920,
+				},
+			},
+			isRead: false,
+			isRecalled: false,
+			isDeleted: false,
+			isMute: false,
+		};
+		if (params.channel === "grindr" && params.token) {
+			data.grindr = { token: params.token };
+		}
+
+		const res = await this.sendPacket<
+			RelayMessageSendResult | { messageId?: string; senderTime?: string }
+		>({ requestId: this.nextReqId++, type: "messageSend", data }, 15000);
 
 		return {
 			messageId: res?.messageId || messageId,

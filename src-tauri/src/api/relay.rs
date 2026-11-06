@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::time::Duration;
 
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use wreq::{Client, Method};
 
@@ -72,6 +73,47 @@ pub async fn relay_http_request(
 		body,
 		headers,
 	})
+}
+
+#[tauri::command]
+pub async fn fetch_image_data_url(url: String) -> Result<String, AppError> {
+	let client = Client::builder()
+		.min_tls_version(wreq::tls::TlsVersion::TLS_1_2)
+		.connect_timeout(Duration::from_secs(10))
+		.read_timeout(Duration::from_secs(15))
+		.build()
+		.map_err(|e| AppError::Http(e.to_string()))?;
+
+	let response = client
+		.get(&url)
+		.header(
+			"User-Agent",
+			"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+		)
+		.header("Referer", "https://images.sublifeapp.com/")
+		.send()
+		.await
+		.map_err(|e| AppError::Http(e.to_string()))?;
+
+	let status = response.status();
+	if !status.is_success() {
+		return Err(AppError::Http(format!("Image fetch status {status}")));
+	}
+
+	let content_type = response
+		.headers()
+		.get("content-type")
+		.and_then(|v| v.to_str().ok())
+		.unwrap_or("image/jpeg")
+		.to_string();
+
+	let bytes = response
+		.bytes()
+		.await
+		.map_err(|e| AppError::Http(e.to_string()))?;
+
+	let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+	Ok(format!("data:{content_type};base64,{b64}"))
 }
 
 #[cfg(test)]

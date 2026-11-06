@@ -5,6 +5,7 @@
 	import CheckIcon from "phosphor-svelte/lib/CheckIcon";
 	import FireIcon from "phosphor-svelte/lib/FireIcon";
 	import HandWavingIcon from "phosphor-svelte/lib/HandWavingIcon";
+	import HeartIcon from "phosphor-svelte/lib/HeartIcon";
 	import PaperPlaneRightIcon from "phosphor-svelte/lib/PaperPlaneRightIcon";
 	import PawPrintIcon from "phosphor-svelte/lib/PawPrintIcon";
 	import SparkleIcon from "phosphor-svelte/lib/SparkleIcon";
@@ -343,7 +344,10 @@
 						{:else if channelState.activeChannel === "jackd"}
 							<HandWavingIcon class="size-3.5" weight="bold" />
 							<span>打招呼 (Wave)</span>
-						{:else if channelState.activeChannel === "heesay" || channelState.activeChannel === "sub"}
+						{:else if channelState.activeChannel === "sub"}
+							<HeartIcon class="size-3.5" weight="bold" />
+							<span>喜欢 (Like)</span>
+						{:else if channelState.activeChannel === "heesay"}
 							<ChatCircleDotsIcon
 								class="size-3.5"
 								weight="bold"

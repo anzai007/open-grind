@@ -3,6 +3,7 @@
 	import ArrowRightIcon from "phosphor-svelte/lib/ArrowRightIcon";
 
 	import { Button } from "$lib/components/ui/button";
+	import { resolveSubImageDataUrl } from "../sub-protocol/sub-image-resolver";
 	import type { UniversalPhoto } from "../types";
 
 	let {
@@ -13,6 +14,18 @@
 	let activePhotoIndex = $state(0);
 
 	const currentPhoto = $derived(photos[activePhotoIndex]);
+
+	const effectiveCurrentSrc = $derived(
+		(currentPhoto?.fullsizeUrl?.startsWith("data:")
+			? currentPhoto.fullsizeUrl
+			: null) ||
+			(currentPhoto?.thumbnailUrl?.startsWith("data:")
+				? currentPhoto.thumbnailUrl
+				: null) ||
+			currentPhoto?.fullsizeUrl ||
+			currentPhoto?.thumbnailUrl ||
+			"",
+	);
 
 	let startX = 0;
 	let startY = 0;
@@ -131,12 +144,27 @@
 	onpointerup={handlePointerUp}
 	onpointercancel={handlePointerCancel}
 >
-	{#if currentPhoto?.fullsizeUrl || currentPhoto?.thumbnailUrl}
+	{#if effectiveCurrentSrc}
 		<img
-			src={currentPhoto.fullsizeUrl || currentPhoto.thumbnailUrl}
+			src={effectiveCurrentSrc}
 			alt={displayName}
 			draggable="false"
 			class="pointer-events-none h-full w-full object-cover"
+			referrerpolicy="no-referrer"
+			onerror={async (e) => {
+				const target = e.currentTarget as HTMLImageElement;
+				const candidate =
+					currentPhoto?.fullsizeUrl || currentPhoto?.thumbnailUrl;
+				if (
+					candidate &&
+					candidate.startsWith("https://images.sublifeapp.com/")
+				) {
+					const dataUrl = await resolveSubImageDataUrl(candidate);
+					if (dataUrl && dataUrl !== target.src) {
+						target.src = dataUrl;
+					}
+				}
+			}}
 		/>
 	{:else}
 		<div
@@ -207,10 +235,34 @@
 				]}
 			>
 				<img
-					src={p.thumbnailUrl || p.fullsizeUrl}
+					src={(p.thumbnailUrl?.startsWith("data:")
+						? p.thumbnailUrl
+						: null) ||
+						(p.fullsizeUrl?.startsWith("data:")
+							? p.fullsizeUrl
+							: null) ||
+						p.thumbnailUrl ||
+						p.fullsizeUrl}
 					alt=""
 					draggable="false"
 					class="h-full w-full object-cover"
+					referrerpolicy="no-referrer"
+					onerror={async (e) => {
+						const target = e.currentTarget as HTMLImageElement;
+						const candidate = p.thumbnailUrl || p.fullsizeUrl;
+						if (
+							candidate &&
+							candidate.startsWith(
+								"https://images.sublifeapp.com/",
+							)
+						) {
+							const dataUrl =
+								await resolveSubImageDataUrl(candidate);
+							if (dataUrl && dataUrl !== target.src) {
+								target.src = dataUrl;
+							}
+						}
+					}}
 				/>
 			</button>
 		{/each}

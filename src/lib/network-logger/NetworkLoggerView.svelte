@@ -5,6 +5,7 @@
 	import TrashIcon from "phosphor-svelte/lib/TrashIcon";
 	import XIcon from "phosphor-svelte/lib/XIcon";
 
+	import { channelState } from "$lib/channel/channel-state.svelte";
 	import { Badge } from "$lib/components/ui/badge";
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
@@ -38,6 +39,21 @@
 	let wsDirectionFilter = $state<WsDirectionFilter>("all");
 	let channelFilter = $state<ChannelFilter>("all");
 	let mobileView = $state<"list" | "detail">("list");
+
+	// 弹窗打开或独立窗口启动时，若处于非 Grindr 渠道，自动对齐到当前渠道过滤器
+	let wasOpen = false;
+	$effect(() => {
+		const isOpen = networkLoggerState.open || standalone;
+		if (isOpen && !wasOpen) {
+			if (
+				channelState.activeChannel &&
+				channelState.activeChannel !== "grindr"
+			) {
+				channelFilter = channelState.activeChannel;
+			}
+		}
+		wasOpen = isOpen;
+	});
 
 	const CHANNEL_FILTERS: Array<{ id: ChannelFilter; label: string }> = [
 		{ id: "all", label: "全部" },
@@ -96,6 +112,17 @@
 		const isSub =
 			platformHdr === "sub" ||
 			urlLower.includes("platform=sub") ||
+			urlLower.includes("platformname=sub") ||
+			urlLower.includes("/fem/api/") ||
+			pathLower.includes("/fem/api/") ||
+			urlLower.includes("appusernode") ||
+			urlLower.includes("appuserphoto") ||
+			urlLower.includes("appaccessrecord") ||
+			urlLower.includes("cacheappuserinfo") ||
+			urlLower.includes("appuserinfo") ||
+			urlLower.includes("saverelationship") ||
+			urlLower.includes("social-touch/sub") ||
+			pathLower.includes("social-touch/sub") ||
 			urlLower.includes("sublife") ||
 			urlLower.includes("sub-") ||
 			urlLower.includes("/sub/") ||
@@ -108,6 +135,40 @@
 			isSub ||
 			urlLower.includes("omni-") ||
 			pathLower.includes("omni-");
+
+		if (filter === "scruff") return isScruff;
+		if (filter === "jackd") return isJackd;
+		if (filter === "heesay") return isHeesay;
+		if (filter === "sub") return isSub;
+		if (filter === "grindr") return !isNonGrindr;
+		return true;
+	}
+
+	function matchesWsChannel(
+		entry: WsLogEntry,
+		filter: ChannelFilter,
+	): boolean {
+		if (filter === "all") return true;
+		if (entry.channel) {
+			return entry.channel === filter;
+		}
+		const typeLower = entry.type.toLowerCase();
+		const payloadStr = entry.payload
+			? JSON.stringify(entry.payload).toLowerCase()
+			: "";
+
+		const isScruff =
+			typeLower.includes("scruff") || payloadStr.includes("scruff");
+		const isJackd =
+			typeLower.includes("jackd") || payloadStr.includes("jackd");
+		const isHeesay =
+			typeLower.includes("heesay") || payloadStr.includes("heesay");
+		const isSub =
+			typeLower.includes("sub") ||
+			payloadStr.includes("sub") ||
+			payloadStr.includes("fem/api");
+
+		const isNonGrindr = isScruff || isJackd || isHeesay || isSub;
 
 		if (filter === "scruff") return isScruff;
 		if (filter === "jackd") return isJackd;
@@ -156,6 +217,7 @@
 	const filteredWsLogs = $derived.by(() => {
 		const q = searchInput.trim().toLowerCase();
 		return networkLoggerState.wsLogs.filter((entry) => {
+			if (!matchesWsChannel(entry, channelFilter)) return false;
 			if (wsDirectionFilter === "sent" && entry.direction !== "sent")
 				return false;
 			if (
@@ -345,30 +407,30 @@
 
 		<!-- Filter Pills -->
 		<div class="flex flex-wrap items-center gap-2 text-xs">
-			{#if networkLoggerState.activeTab === "http"}
-				<div class="flex items-center gap-1">
-					<span class="me-1 text-2xs text-muted-foreground"
-						>渠道:</span
+			<div class="flex items-center gap-1">
+				<span class="me-1 text-2xs text-muted-foreground">渠道:</span>
+				{#each CHANNEL_FILTERS as filter (filter.id)}
+					<button
+						type="button"
+						class={[
+							"rounded-md px-2 py-0.5 text-2xs font-medium transition-colors",
+							{
+								"bg-primary font-semibold text-primary-foreground":
+									channelFilter === filter.id,
+								"text-muted-foreground hover:bg-muted/50 hover:text-foreground":
+									channelFilter !== filter.id,
+							},
+						]}
+						onclick={() => (channelFilter = filter.id)}
 					>
-					{#each CHANNEL_FILTERS as filter (filter.id)}
-						<button
-							type="button"
-							class={[
-								"rounded-md px-2 py-0.5 text-2xs font-medium transition-colors",
-								{
-									"bg-primary font-semibold text-primary-foreground":
-										channelFilter === filter.id,
-									"text-muted-foreground hover:bg-muted/50 hover:text-foreground":
-										channelFilter !== filter.id,
-								},
-							]}
-							onclick={() => (channelFilter = filter.id)}
-						>
-							{filter.label}
-						</button>
-					{/each}
-				</div>
-				<div class="h-3.5 w-px bg-border/60"></div>
+						{filter.label}
+					</button>
+				{/each}
+			</div>
+
+			<div class="h-3.5 w-px bg-border/60"></div>
+
+			{#if networkLoggerState.activeTab === "http"}
 				<div class="flex items-center gap-1">
 					<span class="me-1 text-2xs text-muted-foreground"
 						>状态:</span
@@ -392,24 +454,28 @@
 					{/each}
 				</div>
 			{:else}
-				<span class="me-1 text-2xs text-muted-foreground">方向:</span>
-				{#each WS_FILTERS as filter (filter.id)}
-					<button
-						type="button"
-						class={[
-							"rounded-md px-2 py-0.5 text-2xs font-medium transition-colors",
-							{
-								"bg-secondary font-semibold text-secondary-foreground":
-									wsDirectionFilter === filter.id,
-								"text-muted-foreground hover:bg-muted/50 hover:text-foreground":
-									wsDirectionFilter !== filter.id,
-							},
-						]}
-						onclick={() => (wsDirectionFilter = filter.id)}
+				<div class="flex items-center gap-1">
+					<span class="me-1 text-2xs text-muted-foreground"
+						>方向:</span
 					>
-						{filter.label}
-					</button>
-				{/each}
+					{#each WS_FILTERS as filter (filter.id)}
+						<button
+							type="button"
+							class={[
+								"rounded-md px-2 py-0.5 text-2xs font-medium transition-colors",
+								{
+									"bg-secondary font-semibold text-secondary-foreground":
+										wsDirectionFilter === filter.id,
+									"text-muted-foreground hover:bg-muted/50 hover:text-foreground":
+										wsDirectionFilter !== filter.id,
+								},
+							]}
+							onclick={() => (wsDirectionFilter = filter.id)}
+						>
+							{filter.label}
+						</button>
+					{/each}
+				</div>
 			{/if}
 		</div>
 	</div>

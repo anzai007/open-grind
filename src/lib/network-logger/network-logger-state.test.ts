@@ -116,4 +116,25 @@ describe("NetworkLoggerState", () => {
 		expect(networkLoggerState.httpLogs.length).toBe(0);
 		peerChannel.close();
 	});
+
+	it("records channel for sub HTTP and WS entries correctly", () => {
+		const req = networkLoggerState.startHttp({
+			method: "GET",
+			url: "https://omni-relay.toonhub.top/fem/api/appUserNode/findList?pageNo=1&pageSize=24",
+			channel: "sub",
+			headers: { "omni-platform": "sub" },
+		});
+
+		expect(req.channel).toBe("sub");
+		expect(networkLoggerState.httpLogs[0]?.channel).toBe("sub");
+
+		networkLoggerState.addWs({
+			channel: "sub",
+			direction: "sent",
+			type: "[IM WS] messageSend",
+			payload: { channel: "sub", target: "1063461581229215744" },
+		});
+
+		expect(networkLoggerState.wsLogs[0]?.channel).toBe("sub");
+	});
 });

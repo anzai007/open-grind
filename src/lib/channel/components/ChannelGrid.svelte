@@ -13,12 +13,15 @@
 	import { channelGridState } from "../channel-grid-state.svelte";
 	import { channelState } from "../channel-state.svelte";
 	import { resolveGeohashForAccount } from "../location-helper";
+	import { resolveSubImageDataUrl } from "../sub-protocol/sub-image-resolver";
 	import { templateState } from "../template-state.svelte";
 
 	let { geohash }: { geohash: string } = $props();
 
 	const hasAccount = $derived(
-		(channelState.accounts[channelState.activeChannel]?.length ?? 0) > 0,
+		channelState.activeChannel === "sub" ||
+			(channelState.accounts[channelState.activeChannel]?.length ?? 0) >
+				0,
 	);
 	const currentMeta = $derived(channelState.currentMeta);
 	const currentAccount = $derived(channelState.currentAccount);
@@ -147,6 +150,25 @@
 							alt={user.displayName}
 							class="h-full w-full object-cover transition-opacity duration-300"
 							loading="lazy"
+							referrerpolicy="no-referrer"
+							onerror={async (e) => {
+								const target =
+									e.currentTarget as HTMLImageElement;
+								if (
+									user.avatarThumbnailUrl &&
+									user.avatarThumbnailUrl.startsWith(
+										"https://images.sublifeapp.com/",
+									)
+								) {
+									const dataUrl =
+										await resolveSubImageDataUrl(
+											user.avatarThumbnailUrl,
+										);
+									if (dataUrl && dataUrl !== target.src) {
+										target.src = dataUrl;
+									}
+								}
+							}}
 						/>
 					{:else}
 						<div

@@ -166,6 +166,7 @@
 										alt={viewer.displayName}
 										class="size-full object-cover transition-transform duration-300 group-hover:scale-105"
 										loading="lazy"
+										referrerpolicy="no-referrer"
 									/>
 								{:else}
 									<div

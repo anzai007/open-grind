@@ -64,6 +64,7 @@ export class ChannelState {
 		this.registerProvider("heesay", new HeesayProvider());
 		this.registerProvider("sub", new SubProvider());
 		this.loadFromStorage();
+		this.ensureDefaultSubAccount();
 		void this.syncGrindrSessionAccount();
 		if (this.activeChannel !== "grindr") {
 			void this.checkAndSyncActiveAccount(this.activeChannel);
@@ -469,6 +470,25 @@ export class ChannelState {
 			}
 		} catch (e) {
 			console.warn("Failed to load channel state from storage:", e);
+		}
+	}
+
+	private ensureDefaultSubAccount(): void {
+		if (this.accounts.sub.length === 0) {
+			const defaultSubAccount: ChannelAccount = {
+				id: "sub:17356066556",
+				channel: "sub",
+				accountIdentifier: "17356066556",
+				name: "Sub 运营账号",
+				isEnabled: true,
+				createdAt: Date.now(),
+				extraMeta: { profileId: "17356066556" },
+			};
+			this.accounts.sub.push(defaultSubAccount);
+			if (!this.activeAccountIds.sub) {
+				this.activeAccountIds.sub = defaultSubAccount.id;
+			}
+			this.saveToStorage();
 		}
 	}
 

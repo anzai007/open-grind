@@ -38,16 +38,22 @@ export async function syncSubAccountProfile(
 		profileId = account.accountIdentifier;
 	}
 
-	// 尝试向 ai-growth 用户池或中继查询用户资料
+	// 尝试向 Sub 官方中继或 ai-growth 查询用户资料
 	try {
 		const userRes = await client.request<{
 			code?: number;
+			status?: string | number;
 			data?: RawSubProfile | RawSubProfile[];
 		}>({
 			account: { ...account, proxyUrl: effectiveProxy },
+			headers: {
+				Accept: "application/json",
+				"omni-account": profileId || account.accountIdentifier,
+				"omni-platform": "sub",
+			},
 			method: "GET",
-			path: `/_ai_growth_api/api/social-touch/sub/user-pool/${encodeURIComponent(profileId)}`,
-			timeoutMs: 3000,
+			path: `https://omni-relay.toonhub.top/fem/api/appUser/appUserInfo?appUserId=${encodeURIComponent(profileId)}`,
+			timeoutMs: 4000,
 		});
 
 		const p = Array.isArray(userRes.data) ? userRes.data[0] : userRes.data;
@@ -70,7 +76,41 @@ export async function syncSubAccountProfile(
 			};
 		}
 	} catch {
-		// 降级保留配置
+		// 降级尝试本地 ai-growth 接口
+		try {
+			const fallbackRes = await client.request<{
+				code?: number;
+				data?: RawSubProfile | RawSubProfile[];
+			}>({
+				account: { ...account, proxyUrl: effectiveProxy },
+				method: "GET",
+				path: `/_ai_growth_api/api/social-touch/sub/user-pool/${encodeURIComponent(profileId)}`,
+				timeoutMs: 3000,
+			});
+			const p = Array.isArray(fallbackRes.data)
+				? fallbackRes.data[0]
+				: fallbackRes.data;
+			if (p) {
+				const parsed = parseRawSubProfile(p);
+				const avatar = parsed.photos[0]?.thumbnailUrl;
+				return {
+					...account,
+					avatarUrl: avatar || account.avatarUrl,
+					extraMeta: {
+						...(account.extraMeta ?? {}),
+						profileId,
+						syncedAt: Date.now(),
+					},
+					name:
+						parsed.displayName ||
+						account.name ||
+						account.accountIdentifier,
+					proxyUrl: effectiveProxy,
+				};
+			}
+		} catch {
+			// ignore
+		}
 	}
 
 	return {

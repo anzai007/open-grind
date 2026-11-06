@@ -9,9 +9,11 @@ export function getInterestTabs(channel: string = "grindr") {
 			? "Woof"
 			: channel === "jackd"
 				? "Wave"
-				: channel === "heesay" || channel === "sub"
-					? "SayHi"
-					: "Taps";
+				: channel === "sub"
+					? "Likes"
+					: channel === "heesay"
+						? "SayHi"
+						: "Taps";
 	return [
 		{ href: "/interest/views", label: "Views" },
 		{ href: "/interest/taps", label: secondTabLabel },

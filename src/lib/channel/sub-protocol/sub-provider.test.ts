@@ -16,6 +16,8 @@ describe("Sub Profile Parser", () => {
 	it("formats Sub media URL correctly", () => {
 		expect(subMediaUrl("")).toBe("");
 		expect(subMediaUrl(null)).toBe("");
+		expect(subMediaUrl("1568424771448250368")).toBe("");
+		expect(subMediaUrl("0")).toBe("");
 		expect(
 			subMediaUrl("/uploads/2026/02/27/HUAWEI-1476732189299449856.jpeg"),
 		).toBe(
@@ -23,6 +25,23 @@ describe("Sub Profile Parser", () => {
 		);
 		expect(subMediaUrl("uploads/test.jpg")).toBe(
 			`${DEFAULT_SUB_MEDIA_BASE_URL}/uploads/test.jpg`,
+		);
+		expect(
+			subMediaUrl(
+				"https://images.sublifeapp.com/uploads/2026/02/27/test.jpeg",
+			),
+		).toBe(
+			"https://images.sublifeapp.com/images/uploads/2026/02/27/test.jpeg",
+		);
+		expect(
+			subMediaUrl(
+				"https://images.sublifeapp.com/images/uploads/2026/02/27/test.jpeg",
+			),
+		).toBe(
+			"https://images.sublifeapp.com/images/uploads/2026/02/27/test.jpeg",
+		);
+		expect(subMediaUrl("/images/uploads/test.jpg")).toBe(
+			"https://images.sublifeapp.com/images/uploads/test.jpg",
 		);
 		expect(subMediaUrl("https://example.com/photo.jpg")).toBe(
 			"https://example.com/photo.jpg",
@@ -88,6 +107,32 @@ describe("Sub Profile Parser", () => {
 		expect(profile.photos[0]?.isAvatar).toBe(true);
 	});
 
+	it("parses RawSubProfile with native avatarImage object and numeric attachmentId", () => {
+		const raw: RawSubProfile = {
+			id: "1568424445622132736",
+			userName: "长期爹系成都大叔",
+			avatar: "1568424771448250368",
+			avatarImage: {
+				attachmentId: "1568424771448250368",
+				webAddr: "/uploads/2026/11/07/HUAWEI-1568424771448250368.jpeg",
+				miniImageUrl:
+					"/uploads/2026/11/07/HUAWEI-1568424771448250368.jpeg?x-image-process=image/resize,p_90/quality,q_80/marker,u_plus",
+			},
+			userTag: "3",
+			city: "成都",
+			isOnline: "1",
+		};
+
+		const gridUser = parseSubGridUser(raw);
+		expect(gridUser.displayName).toBe("长期爹系成都大叔");
+		expect(gridUser.avatarThumbnailUrl).toBe(
+			"https://images.sublifeapp.com/images/uploads/2026/11/07/HUAWEI-1568424771448250368.jpeg?x-image-process=image/resize,p_90/quality,q_80/marker,u_plus",
+		);
+		expect(gridUser.avatarFullUrl).toBe(
+			"https://images.sublifeapp.com/images/uploads/2026/11/07/HUAWEI-1568424771448250368.jpeg",
+		);
+	});
+
 	it("parses RawSubProfile into UniversalGridUser correctly", () => {
 		const raw: RawSubProfile = {
 			userId: "1063461581229215744",
@@ -122,11 +167,19 @@ describe("SubProvider Implementation", () => {
 
 	it("dispatches Say Hi interaction with graceful fallback", async () => {
 		const provider = new SubProvider();
+		const mockRequest = vi
+			.fn()
+			.mockResolvedValue({ code: 200, data: { success: true } });
+		(
+			provider as unknown as { client: { request: typeof mockRequest } }
+		).client = { request: mockRequest };
+
 		const result = await provider.sendInteraction("1063461581229215744");
 		expect(result.success).toBe(true);
 		expect(result.interactionType).toBe("say_hi");
 		expect(result.message).toContain("Say Hi");
 		expect(result.targetUserId).toBe("1063461581229215744");
+		expect(mockRequest).toHaveBeenCalled();
 	});
 
 	it("handles getConversations with mapped partner and last message", async () => {
@@ -230,5 +283,220 @@ describe("SubProvider Implementation", () => {
 		);
 		expect(messages[0]?.text).toBe("[图片]");
 		expect(messages[0]?.isFromMe).toBe(false);
+	});
+
+	it("fetches nearby users via findList and parses distance correctly", async () => {
+		const provider = new SubProvider();
+		const mockRequest = vi
+			.fn()
+			.mockImplementation((opts: { path: string }) => {
+				if (opts.path.includes("appUserNode/findList")) {
+					return {
+						status: 200,
+						data: {
+							records: [
+								{
+									userId: "2001",
+									userName: "NearbyBob",
+									avatar: "/uploads/bob.jpg",
+									userTag: 1,
+									city: "深圳市",
+									gps: 150.5,
+									isOnline: 1,
+								},
+								{
+									userId: "2002",
+									userName: "NearbyCharlie",
+									avatar: "/uploads/charlie.jpg",
+									userTag: 2,
+									gps: 1250,
+									isOnline: 0,
+								},
+							],
+							total: 2,
+						},
+					};
+				}
+				return { status: 200, data: {} };
+			});
+
+		(
+			provider as unknown as { client: { request: typeof mockRequest } }
+		).client = { request: mockRequest };
+
+		const res = await provider.getNearbyUsers({
+			lat: 22.5431,
+			lon: 114.0579,
+			account: {
+				id: "sub:1001",
+				channel: "sub",
+				accountIdentifier: "1001",
+				name: "Sub Test",
+				createdAt: Date.now(),
+				isEnabled: true,
+			},
+		});
+
+		expect(res.items).toHaveLength(2);
+		expect(res.items[0]!.id).toBe("2001");
+		expect(res.items[0]!.displayName).toBe("NearbyBob");
+		expect(res.items[0]!.distanceMeters).toBe(151);
+		expect(res.items[0]!.distanceText).toBe("151 m");
+		expect(res.items[1]!.id).toBe("2002");
+		expect(res.items[1]!.distanceMeters).toBe(1250);
+		expect(res.items[1]!.distanceText).toBe("1.3 km");
+	});
+
+	it("fetches user details and caches result", async () => {
+		const provider = new SubProvider();
+		const mockRequest = vi
+			.fn()
+			.mockImplementation((opts: { path: string }) => {
+				if (opts.path.includes("appUser/appUserInfo")) {
+					return {
+						status: 200,
+						data: {
+							userId: "3001",
+							userName: "TargetAlice",
+							userTag: 2,
+							avatar: "/uploads/alice.jpg",
+							city: "广州市",
+							height: 172,
+							weight: 60,
+							gender: 2,
+							isOnline: 1,
+							biography: "Hello Sub!",
+						},
+					};
+				}
+				if (opts.path.includes("appUserPhoto/findList")) {
+					return {
+						status: 200,
+						data: {
+							records: [
+								{
+									id: "p1",
+									file: { webAddr: "/uploads/album1.jpg" },
+								},
+							],
+						},
+					};
+				}
+				return { status: 200, data: {} };
+			});
+
+		(
+			provider as unknown as { client: { request: typeof mockRequest } }
+		).client = { request: mockRequest };
+
+		const detail = await provider.getUserDetail("3001");
+		expect(detail.id).toBe("3001");
+		expect(detail.displayName).toBe("TargetAlice");
+		expect(detail.rolePreference).toBe("M");
+		expect(detail.heightCm).toBe(172);
+		expect(detail.weightKg).toBe(60);
+		expect(detail.about).toBe("Hello Sub!");
+		expect(detail.photos.length).toBeGreaterThanOrEqual(1);
+
+		// Cache check: calling again should return cached profile without calling appUserInfo again
+		mockRequest.mockClear();
+		const cachedDetail = await provider.getUserDetail("3001");
+		expect(cachedDetail.displayName).toBe("TargetAlice");
+		expect(mockRequest).not.toHaveBeenCalled();
+	});
+
+	it("sends relationship like and hello message", async () => {
+		const provider = new SubProvider();
+		const mockRequest = vi
+			.fn()
+			.mockResolvedValue({ status: 200, data: { success: true } });
+		(
+			provider as unknown as { client: { request: typeof mockRequest } }
+		).client = { request: mockRequest };
+
+		const result = await provider.sendInteraction("4001", {
+			id: "sub:1001",
+			channel: "sub",
+			accountIdentifier: "1001",
+			name: "Sub Test",
+			createdAt: Date.now(),
+			isEnabled: true,
+		});
+
+		expect(result.success).toBe(true);
+		expect(result.targetUserId).toBe("4001");
+		expect(mockRequest).toHaveBeenCalledWith(
+			expect.objectContaining({
+				path: "https://omni-relay.toonhub.top/fem/api/appUserNode/saveRelationship",
+				body: { isLike: "1", targetUserId: "4001" },
+			}),
+		);
+	});
+
+	it("fetches profile visitors via appAccessRecord", async () => {
+		const provider = new SubProvider();
+		const mockRequest = vi
+			.fn()
+			.mockImplementation((opts: { path: string }) => {
+				if (opts.path.includes("appAccessRecord/findList")) {
+					return {
+						status: 200,
+						data: {
+							records: [
+								{
+									userId: "5001",
+									userName: "VisitorOne",
+									avatar: "/uploads/visitor1.jpg",
+									userTag: 1,
+									accessTime: "2026-11-06T10:00:00Z",
+								},
+							],
+							total: 1,
+						},
+					};
+				}
+				return { status: 200, data: {} };
+			});
+
+		(
+			provider as unknown as { client: { request: typeof mockRequest } }
+		).client = { request: mockRequest };
+
+		const viewers = await provider.getViewers({
+			id: "sub:1001",
+			channel: "sub",
+			accountIdentifier: "1001",
+			name: "Sub Test",
+			createdAt: Date.now(),
+			isEnabled: true,
+		});
+
+		expect(viewers).toHaveLength(1);
+		expect(viewers[0]!.id).toBe("5001");
+		expect(viewers[0]!.displayName).toBe("VisitorOne");
+	});
+
+	it("formats and returns image message on sendMessage", async () => {
+		const provider = new SubProvider();
+		const msg = await provider.sendMessage({
+			account: {
+				id: "sub:1001",
+				channel: "sub",
+				accountIdentifier: "1001",
+				name: "Sub Test",
+				createdAt: Date.now(),
+				isEnabled: true,
+			},
+			targetUserId: "2001",
+			text: "",
+			mediaUrl: "/uploads/my_photo.jpg",
+		});
+
+		expect(msg.channel).toBe("sub");
+		expect(msg.mediaUrl).toBe(
+			`${DEFAULT_SUB_MEDIA_BASE_URL}/uploads/my_photo.jpg`,
+		);
+		expect(msg.text).toBe("[图片]");
+		expect(msg.isFromMe).toBe(true);
 	});
 });

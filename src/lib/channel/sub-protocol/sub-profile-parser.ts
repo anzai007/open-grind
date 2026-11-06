@@ -12,12 +12,63 @@ export const DEFAULT_SUB_MEDIA_BASE_URL =
  */
 export function subMediaUrl(urlOrPath?: string | null): string {
 	if (!urlOrPath) return "";
-	const trimmed = urlOrPath.trim();
-	if (!trimmed) return "";
-	if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+	let trimmed = String(urlOrPath).trim();
+	if (
+		!trimmed ||
+		trimmed === "0" ||
+		trimmed === "null" ||
+		trimmed === "undefined" ||
+		trimmed === "-"
+	) {
+		return "";
+	}
+
+	// 纯数字 ID（如 Sub 内部 attachmentId: "1568424771448250368"）不是有效媒体路径
+	if (/^\d+$/.test(trimmed)) {
+		return "";
+	}
+
+	// 兼容 // 协议相对或缺失协议的前缀
+	if (trimmed.startsWith("//")) {
+		trimmed = `https:${trimmed}`;
+	} else if (trimmed.startsWith("images.sublifeapp.com/")) {
+		trimmed = `https://${trimmed}`;
+	}
+
+	if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
 		return trimmed;
 	}
-	return `${DEFAULT_SUB_MEDIA_BASE_URL}/${trimmed.replace(/^\/+/, "")}`;
+
+	if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+		// 若为官方图片域名但缺少 /images 前缀，补齐以避开 CDN / WAF 418 拦截
+		if (
+			trimmed.startsWith("https://images.sublifeapp.com/") &&
+			!trimmed.startsWith("https://images.sublifeapp.com/images/")
+		) {
+			return trimmed.replace(
+				"https://images.sublifeapp.com/",
+				"https://images.sublifeapp.com/images/",
+			);
+		}
+		if (
+			trimmed.startsWith("http://images.sublifeapp.com/") &&
+			!trimmed.startsWith("http://images.sublifeapp.com/images/")
+		) {
+			return trimmed.replace(
+				"http://images.sublifeapp.com/",
+				"https://images.sublifeapp.com/images/",
+			);
+		}
+		return trimmed;
+	}
+
+	// 相对路径处理
+	const clean = trimmed.replace(/^\/+/, "");
+	// 若已经以 images/ 开头，避免重复拼成 images/images/
+	if (clean.startsWith("images/")) {
+		return `https://images.sublifeapp.com/${clean}`;
+	}
+	return `${DEFAULT_SUB_MEDIA_BASE_URL}/${clean}`;
 }
 
 export interface RawSubProfile {
@@ -31,6 +82,14 @@ export interface RawSubProfile {
 	phone?: string;
 	avatar?: string;
 	avatarUrl?: string;
+	avatarImage?: {
+		attachmentId?: string | number;
+		webAddr?: string;
+		saveAddr?: string;
+		miniImageUrl?: string;
+		fileName?: string;
+		[key: string]: unknown;
+	};
 	gender?: number | string;
 	genderText?: string;
 	targetGender?: number | string;
@@ -100,15 +159,49 @@ export function extractSubPhotos(raw: RawSubProfile): UniversalPhoto[] {
 	const photos: UniversalPhoto[] = [];
 	const seen = new Set<string>();
 
-	const addPhoto = (pathOrUrl?: string | null, isAvatar = false) => {
+	const addPhoto = (
+		pathOrUrl?: string | null,
+		isAvatar = false,
+		thumbPathOrUrl?: string | null,
+	) => {
 		if (!pathOrUrl) return;
 		const fullUrl = subMediaUrl(pathOrUrl);
 		if (!fullUrl || seen.has(fullUrl)) return;
 		seen.add(fullUrl);
-		photos.push({ fullsizeUrl: fullUrl, thumbnailUrl: fullUrl, isAvatar });
+		const thumbnailUrl = thumbPathOrUrl
+			? subMediaUrl(thumbPathOrUrl)
+			: fullUrl;
+		photos.push({
+			fullsizeUrl: fullUrl,
+			thumbnailUrl: thumbnailUrl || fullUrl,
+			isAvatar,
+		});
 	};
 
-	// 1. detailAll 预解析
+	// 1. 优先提取根级与 extUser 层的 avatarImage 对象（Sub 原生 API 最标准格式）
+	const rawAvatarImage =
+		raw.avatarImage ||
+		(
+			raw.user as
+				| { extUser?: { avatarImage?: Record<string, unknown> } }
+				| undefined
+		)?.extUser?.avatarImage;
+	if (rawAvatarImage && typeof rawAvatarImage === "object") {
+		const rec = rawAvatarImage;
+		const full =
+			(rec.webAddr as string | undefined) ||
+			(rec.saveAddr as string | undefined) ||
+			(rec.miniImageUrl as string | undefined);
+		const thumb =
+			(rec.miniImageUrl as string | undefined) ||
+			(rec.webAddr as string | undefined) ||
+			(rec.saveAddr as string | undefined);
+		if (full) {
+			addPhoto(full, true, thumb);
+		}
+	}
+
+	// 2. detailAll 预解析
 	let detailObj: Record<string, unknown> | null = null;
 	if (raw.detailAll) {
 		if (typeof raw.detailAll === "string") {
@@ -128,33 +221,36 @@ export function extractSubPhotos(raw: RawSubProfile): UniversalPhoto[] {
 		}
 	}
 
-	const avatarImageObj = detailObj?.avatarImage as
-		| Record<string, unknown>
-		| undefined;
-
-	// 2. 头像提取
-	const avatar =
-		raw.avatar ||
-		raw.avatarUrl ||
-		(avatarImageObj?.saveAddr as string | undefined) ||
-		(avatarImageObj?.webAddr as string | undefined);
-	if (typeof avatar === "string") {
-		addPhoto(avatar, true);
-	}
-
-	// 3. detailAll 内照片解析
 	if (detailObj) {
 		const avatarImage = detailObj.avatarImage as
 			| Record<string, unknown>
 			| undefined;
-		if (avatarImage) {
-			if (typeof avatarImage.webAddr === "string")
-				addPhoto(avatarImage.webAddr);
-			if (typeof avatarImage.saveAddr === "string")
-				addPhoto(avatarImage.saveAddr);
+		if (avatarImage && typeof avatarImage === "object") {
+			const full =
+				(avatarImage.webAddr as string | undefined) ||
+				(avatarImage.saveAddr as string | undefined) ||
+				(avatarImage.miniImageUrl as string | undefined);
+			const thumb =
+				(avatarImage.miniImageUrl as string | undefined) ||
+				(avatarImage.webAddr as string | undefined) ||
+				(avatarImage.saveAddr as string | undefined);
+			if (full) {
+				addPhoto(full, true, thumb);
+			}
 		}
 
-		// 照片墙 / 动态图片
+		if (typeof detailObj.avatarUrl === "string") {
+			addPhoto(detailObj.avatarUrl, true);
+		}
+
+		if (
+			typeof detailObj.avatar === "string" &&
+			!/^\d+$/.test(detailObj.avatar.trim())
+		) {
+			addPhoto(detailObj.avatar, true);
+		}
+
+		// 照片墙 / 动态图片 / 相册
 		const photoList =
 			detailObj.photos || detailObj.album || detailObj.photoWall;
 		if (Array.isArray(photoList)) {
@@ -163,23 +259,75 @@ export function extractSubPhotos(raw: RawSubProfile): UniversalPhoto[] {
 					addPhoto(item);
 				} else if (item && typeof item === "object") {
 					const rec = item as Record<string, unknown>;
-					const u = (rec.url ||
+					const f = rec.file as Record<string, unknown> | undefined;
+					const u = (f?.webAddr ||
+						f?.saveAddr ||
+						rec.url ||
 						rec.webAddr ||
 						rec.saveAddr ||
 						rec.thumbnail) as string | undefined;
-					if (u) addPhoto(u);
+					const thumb = (f?.miniImageUrl || rec.thumbnail || u) as
+						| string
+						| undefined;
+					if (u)
+						addPhoto(
+							u,
+							rec.isAvatar === "1" || rec.isAvatar === 1,
+							thumb,
+						);
 				}
 			}
 		}
 	}
 
-	// 3. 根级 photos 数组
-	if (Array.isArray(raw.photos)) {
-		for (const p of raw.photos) {
+	// 3. 根级 avatarUrl 或非纯数字 avatar
+	if (typeof raw.avatarUrl === "string") {
+		addPhoto(raw.avatarUrl, true);
+	}
+	if (typeof raw.avatar === "string" && !/^\d+$/.test(raw.avatar.trim())) {
+		addPhoto(raw.avatar, true);
+	}
+
+	// 4. 单张相册记录结构 (如 appUserPhoto/findList 项的 item.file)
+	if (raw.file && typeof raw.file === "object") {
+		const f = raw.file as Record<string, unknown>;
+		const u = (f.webAddr || f.saveAddr || f.miniImageUrl) as
+			| string
+			| undefined;
+		const thumb = (f.miniImageUrl || f.webAddr || f.saveAddr) as
+			| string
+			| undefined;
+		if (u) addPhoto(u, raw.isAvatar === "1" || raw.isAvatar === 1, thumb);
+	}
+
+	// 5. 根级 photos / albumList 数组
+	const directList = Array.isArray(raw.photos)
+		? raw.photos
+		: Array.isArray(raw.albumList)
+			? raw.albumList
+			: undefined;
+	if (directList) {
+		for (const p of directList) {
 			if (typeof p === "string") {
 				addPhoto(p);
 			} else if (p && typeof p === "object") {
-				addPhoto(p.url || p.thumbnail);
+				const rec = p as Record<string, unknown>;
+				const f = rec.file as Record<string, unknown> | undefined;
+				const u = (f?.webAddr ||
+					f?.saveAddr ||
+					rec.url ||
+					rec.thumbnail ||
+					rec.webAddr ||
+					rec.saveAddr) as string | undefined;
+				const thumb = (f?.miniImageUrl || rec.thumbnail || u) as
+					| string
+					| undefined;
+				if (u)
+					addPhoto(
+						u,
+						rec.isAvatar === "1" || rec.isAvatar === 1,
+						thumb,
+					);
 			}
 		}
 	}
@@ -283,12 +431,47 @@ export function parseRawSubProfile(raw: RawSubProfile): UniversalUserProfile {
 
 	const about = raw.biography || raw.about || undefined;
 
+	// 距离解析 (Sub 附近用户 findList 返回 gps 字段，单位为米)
+	let distanceMeters: number | null = null;
+	if (typeof raw.gps === "number" && !Number.isNaN(raw.gps) && raw.gps >= 0) {
+		distanceMeters = Math.round(raw.gps);
+	} else if (
+		typeof raw.distance === "number" &&
+		!Number.isNaN(raw.distance) &&
+		raw.distance >= 0
+	) {
+		distanceMeters = Math.round(raw.distance);
+	} else if (typeof raw.gps === "string" && raw.gps.trim()) {
+		const parsedGps = parseFloat(raw.gps);
+		if (!Number.isNaN(parsedGps) && parsedGps >= 0) {
+			distanceMeters = Math.round(parsedGps);
+		}
+	}
+
+	let distanceText: string | undefined =
+		typeof raw.distanceText === "string"
+			? raw.distanceText
+			: typeof raw.distanceText === "number"
+				? String(raw.distanceText)
+				: undefined;
+	if (!distanceText && distanceMeters !== null) {
+		if (distanceMeters < 100) {
+			distanceText = "< 100 m";
+		} else if (distanceMeters < 1000) {
+			distanceText = `${distanceMeters} m`;
+		} else {
+			distanceText = `${(distanceMeters / 1000).toFixed(1)} km`;
+		}
+	}
+
 	return {
 		about,
 		age,
 		channel: "sub",
 		communityTags: communityTags.length > 0 ? communityTags : undefined,
 		displayName,
+		distanceMeters,
+		distanceText,
 		heightCm,
 		id,
 		isOnline,
@@ -306,11 +489,31 @@ export function parseRawSubProfile(raw: RawSubProfile): UniversalUserProfile {
  */
 export function parseSubGridUser(raw: RawSubProfile): UniversalGridUser {
 	const parsed = parseRawSubProfile(raw);
+	const rawAvatarImage =
+		raw.avatarImage ||
+		(
+			raw.user as
+				| { extUser?: { avatarImage?: Record<string, unknown> } }
+				| undefined
+		)?.extUser?.avatarImage;
+	const candidateRawAvatar =
+		(rawAvatarImage?.miniImageUrl as string | undefined) ||
+		(rawAvatarImage?.webAddr as string | undefined) ||
+		(rawAvatarImage?.saveAddr as string | undefined) ||
+		raw.avatarUrl ||
+		(raw.avatar && !/^\d+$/.test(String(raw.avatar).trim())
+			? String(raw.avatar)
+			: undefined);
+
 	const thumbUrl =
 		parsed.photos[0]?.thumbnailUrl ||
-		subMediaUrl(raw.avatar || raw.avatarUrl) ||
+		parsed.photos[0]?.fullsizeUrl ||
+		subMediaUrl(candidateRawAvatar) ||
 		"";
-	const fullUrl = parsed.photos[0]?.fullsizeUrl || thumbUrl;
+	const fullUrl =
+		parsed.photos[0]?.fullsizeUrl ||
+		parsed.photos[0]?.thumbnailUrl ||
+		thumbUrl;
 
 	return {
 		age: parsed.age,
