@@ -53,6 +53,17 @@ export default defineConfig(async ({ command }) => ({
 				secure: false,
 				rewrite: (path) => path.replace(/^\/_ai_growth_api/, ""),
 			},
+			"/_sub_images": {
+				target: "https://images.sublifeapp.com",
+				changeOrigin: true,
+				secure: true,
+				rewrite: (path) => path.replace(/^\/_sub_images/, ""),
+				headers: {
+					Referer: "https://images.sublifeapp.com/",
+					"User-Agent":
+						"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+				},
+			},
 		},
 		fs: {
 			allow: [

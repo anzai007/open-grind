@@ -17,6 +17,11 @@
 		resolveEffectiveProxy,
 	} from "../scruff-protocol/proxy-helper";
 	import { RelayClient } from "../scruff-protocol/relay-client";
+	import {
+		fetchSubPoolAccountsWithProfiles,
+		type SubPoolAccountItem,
+	} from "../sub-protocol/sub-account-verifier";
+	import { resolveSubImageDataUrl } from "../sub-protocol/sub-image-resolver";
 	import type { ChannelAccount, SocialChannelType } from "../types";
 
 	let {
@@ -37,14 +42,9 @@
 	// 平台账号池快速选择面板
 	let showPoolPicker = $state(false);
 	let isLoadingPool = $state(false);
-	let poolAccounts = $state<
-		Array<{
-			account: string;
-			hasAccessToken: boolean;
-			platformUserId: string;
-			proxyUrl: string;
-		}>
-	>([]);
+	let selectedAvatarUrl = $state<string | undefined>(undefined);
+
+	let poolAccounts = $state<SubPoolAccountItem[]>([]);
 
 	const platform = $derived(channel === "grindr" ? "scruff" : channel);
 
@@ -59,25 +59,62 @@
 		isLoadingPool = true;
 		try {
 			const client = new RelayClient({ platform });
-			const res = await client.request<{
-				data?: {
-					items?: Array<{
-						account: string;
-						hasAccessToken: boolean;
-						platformUserId: string;
-						proxyUrl: string;
-					}>;
-				};
-				ret?: boolean;
-			}>({
-				headers: { "omni-platform": channel },
-				method: "GET",
-				path: `https://omni-api.toonhub.top/platform/accounts?platformName=${channel}&pageSize=30`,
-				timeoutMs: 10000,
-			});
 
-			if (res.ret && res.data?.items) {
-				poolAccounts = res.data.items;
+			if (channel === "sub") {
+				const baseRes = await client.request<{
+					data?: {
+						items?: Array<{
+							account: string;
+							hasAccessToken: boolean;
+							platformUserId: string;
+							proxyUrl: string;
+						}>;
+					};
+					ret?: boolean;
+				}>({
+					headers: { "omni-platform": "sub" },
+					method: "GET",
+					path: "https://omni-api.toonhub.top/platform/accounts?platformName=sub&pageSize=30",
+					timeoutMs: 10000,
+				});
+
+				if (baseRes.ret && baseRes.data?.items) {
+					poolAccounts = baseRes.data.items.map((i) => ({
+						account: i.account,
+						hasAccessToken: i.hasAccessToken,
+						platformUserId: i.platformUserId,
+						proxyUrl: i.proxyUrl,
+					}));
+				}
+
+				const hydrated = await fetchSubPoolAccountsWithProfiles(
+					client,
+					30,
+				);
+				if (hydrated.length > 0) {
+					poolAccounts = hydrated;
+				}
+			} else {
+				const res = await client.request<{
+					data?: {
+						items?: Array<{
+							account: string;
+							hasAccessToken: boolean;
+							platformUserId: string;
+							proxyUrl: string;
+						}>;
+					};
+					ret?: boolean;
+				}>({
+					headers: { "omni-platform": channel },
+					method: "GET",
+					path: `https://omni-api.toonhub.top/platform/accounts?platformName=${channel}&pageSize=30`,
+					timeoutMs: 10000,
+				});
+
+				if (res.ret && res.data?.items) {
+					poolAccounts = res.data.items;
+				}
 			}
 		} catch (err) {
 			toast.error(
@@ -88,21 +125,26 @@
 		}
 	}
 
-	function handleSelectPoolAccount(item: {
-		account: string;
-		platformUserId: string;
-		proxyUrl: string;
-	}) {
+	function handleSelectPoolAccount(item: SubPoolAccountItem) {
 		email = item.account;
 		platformUserId = item.platformUserId;
 		platformProxy = item.proxyUrl;
 		if (item.proxyUrl) {
 			proxyUrl = item.proxyUrl;
 		}
+		if (item.displayName && item.displayName !== item.account) {
+			name = item.displayName;
+		}
+		selectedAvatarUrl = item.avatarUrl;
 		const hostPort = getProxyHostPort(item.proxyUrl);
-		platformMatchInfo = `已选中平台账号 (UID: ${item.platformUserId})${hostPort ? ` · 绑定代理 ${hostPort}` : ""}`;
+		const roleInfo = item.roleTag ? ` · 属性: ${item.roleTag}` : "";
+		const nameInfo =
+			item.displayName && item.displayName !== item.account
+				? ` (${item.displayName})`
+				: "";
+		platformMatchInfo = `已选中平台账号${nameInfo} (UID: ${item.platformUserId})${roleInfo}${hostPort ? ` · 绑定代理 ${hostPort}` : ""}`;
 		showPoolPicker = false;
-		toast.success(`已自动填充账号 ${item.account}`);
+		toast.success(`已自动填充账号 ${item.displayName || item.account}`);
 	}
 
 	async function handleEmailBlur() {
@@ -170,6 +212,7 @@
 
 			const newAccount: ChannelAccount = {
 				accountIdentifier: trimmedEmail,
+				avatarUrl: selectedAvatarUrl || undefined,
 				channel,
 				createdAt: Date.now(),
 				extraMeta: platformUserId
@@ -212,6 +255,7 @@
 				platformMatchInfo = null;
 				platformProxy = null;
 				platformUserId = null;
+				selectedAvatarUrl = undefined;
 				onAccountAdded?.();
 			} else {
 				errorText =
@@ -239,6 +283,7 @@
 
 		const newAccount: ChannelAccount = {
 			accountIdentifier: trimmedEmail,
+			avatarUrl: selectedAvatarUrl || undefined,
 			channel,
 			createdAt: Date.now(),
 			extraMeta: platformUserId
@@ -262,6 +307,7 @@
 		platformMatchInfo = null;
 		platformProxy = null;
 		platformUserId = null;
+		selectedAvatarUrl = undefined;
 		onAccountAdded?.();
 	}
 </script>
@@ -300,13 +346,18 @@
 					平台已录入的 {channel.toUpperCase()} 账号池：
 				</span>
 				{#if isLoadingPool}
-					<Spinner class="size-3.5 text-primary" />
+					<div
+						class="flex items-center gap-1.5 text-[11px] text-muted-foreground"
+					>
+						<Spinner class="size-3.5 text-primary" />
+						<span>加载资料中...</span>
+					</div>
 				{/if}
 			</div>
 
-			<div class="flex max-h-40 flex-col gap-1 overflow-y-auto pr-1">
+			<div class="flex max-h-56 flex-col gap-1.5 overflow-y-auto pr-1">
 				{#if poolAccounts.length === 0 && !isLoadingPool}
-					<div class="py-2 text-center text-xs text-muted-foreground">
+					<div class="py-3 text-center text-xs text-muted-foreground">
 						暂未加载到平台账号
 					</div>
 				{/if}
@@ -314,22 +365,108 @@
 					<button
 						type="button"
 						onclick={() => handleSelectPoolAccount(item)}
-						class="flex items-center justify-between rounded-md border border-border/50 bg-background/80 px-2.5 py-1.5 text-left text-xs transition-colors hover:border-primary hover:bg-primary/10"
+						class="group flex items-center justify-between rounded-lg border border-border/50 bg-background/90 p-2 text-left text-xs transition-all hover:border-primary hover:bg-primary/5 hover:shadow-xs"
 					>
-						<div class="flex flex-col">
-							<span class="font-mono font-medium text-foreground">
-								{item.account}
-							</span>
-							<span class="text-[10px] text-muted-foreground">
-								UID: {item.platformUserId}
-								{#if item.proxyUrl}
-									· 包含专属代理
+						<div class="flex min-w-0 items-center gap-2.5">
+							<!-- 头像展示 (支持 Sub 头像 / Fallback) -->
+							<div
+								class="relative size-9 shrink-0 overflow-hidden rounded-full border border-border/60 bg-muted/60"
+							>
+								{#if item.avatarUrl}
+									<img
+										src={item.avatarUrl}
+										alt={item.displayName || item.account}
+										class="size-full object-cover"
+										loading="lazy"
+										referrerpolicy="no-referrer"
+										onerror={async (e) => {
+											const target =
+												e.currentTarget as HTMLImageElement;
+											if (
+												item.avatarUrl?.startsWith(
+													"https://images.sublifeapp.com/",
+												)
+											) {
+												const dataUrl =
+													await resolveSubImageDataUrl(
+														item.avatarUrl,
+													);
+												if (
+													dataUrl &&
+													dataUrl !== target.src
+												) {
+													target.src = dataUrl;
+												}
+											}
+										}}
+									/>
+								{:else}
+									<div
+										class="flex size-full items-center justify-center text-xs font-semibold text-muted-foreground"
+									>
+										{(item.displayName || item.account)
+											.slice(0, 2)
+											.toUpperCase()}
+									</div>
 								{/if}
-							</span>
+							</div>
+
+							<!-- 账号详情：昵称、属性、手机号/账号标识、UID、代理 -->
+							<div class="flex min-w-0 flex-col gap-0.5">
+								<div class="flex items-center gap-1.5">
+									<span
+										class="truncate text-xs font-semibold text-foreground"
+									>
+										{item.displayName || item.account}
+									</span>
+
+									<!-- 属性标签 (S / M / Switch / 未决定) -->
+									{#if item.roleTag}
+										<Badge
+											variant="secondary"
+											class={[
+												"h-4 px-1.5 text-[10px] leading-none font-medium",
+												{
+													"border-rose-500/30 bg-rose-500/10 text-rose-500 dark:text-rose-400":
+														item.roleTag === "S",
+													"border-blue-500/30 bg-blue-500/10 text-blue-500 dark:text-blue-400":
+														item.roleTag === "M",
+													"border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400":
+														item.roleTag !== "S" &&
+														item.roleTag !== "M",
+												},
+											]}
+										>
+											{item.roleTag}
+										</Badge>
+									{/if}
+								</div>
+
+								<div
+									class="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground"
+								>
+									<span class="font-mono text-foreground/80">
+										{item.account}
+									</span>
+									<span>·</span>
+									<span class="font-mono text-[10px]">
+										UID: {item.platformUserId}
+									</span>
+									{#if item.proxyUrl}
+										<span>·</span>
+										<span
+											class="text-[10px] text-emerald-600 dark:text-emerald-400"
+										>
+											专属代理
+										</span>
+									{/if}
+								</div>
+							</div>
 						</div>
+
 						<Badge
 							variant="outline"
-							class="text-[10px] font-normal"
+							class="shrink-0 text-[10px] font-normal transition-colors group-hover:border-primary group-hover:bg-primary group-hover:text-primary-foreground"
 						>
 							一键填充
 						</Badge>

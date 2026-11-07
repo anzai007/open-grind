@@ -5,7 +5,12 @@ import {
 } from "../scruff-protocol/proxy-helper";
 import type { RelayClient } from "../scruff-protocol/relay-client";
 import type { ChannelAccount } from "../types";
-import { parseRawSubProfile, type RawSubProfile } from "./sub-profile-parser";
+import { resolveSubImageDataUrl } from "./sub-image-resolver";
+import {
+	formatSubRole,
+	parseRawSubProfile,
+	type RawSubProfile,
+} from "./sub-profile-parser";
 
 /**
  * 同步 Sub 账号资料（真实昵称、头像与 platformUserId）
@@ -59,7 +64,10 @@ export async function syncSubAccountProfile(
 		const p = Array.isArray(userRes.data) ? userRes.data[0] : userRes.data;
 		if (p) {
 			const parsed = parseRawSubProfile(p);
-			const avatar = parsed.photos[0]?.thumbnailUrl;
+			const rawAvatar = parsed.photos[0]?.thumbnailUrl;
+			const avatar = rawAvatar
+				? await resolveSubImageDataUrl(rawAvatar)
+				: account.avatarUrl;
 			return {
 				...account,
 				avatarUrl: avatar || account.avatarUrl,
@@ -240,4 +248,143 @@ export async function verifySubAccount(
 	})();
 
 	return Promise.race([verifyPromise, timeoutPromise]);
+}
+
+export interface SubPoolAccountItem {
+	account: string;
+	hasAccessToken: boolean;
+	platformUserId: string;
+	proxyUrl: string;
+	displayName?: string;
+	roleTag?: string;
+	avatarUrl?: string;
+}
+
+/**
+ * 从平台账号池拉取 Sub 账号列表，并并行水合用户真实资料（昵称、属性、头像）
+ */
+export async function fetchSubPoolAccountsWithProfiles(
+	client: RelayClient,
+	pageSize = 30,
+): Promise<SubPoolAccountItem[]> {
+	const res = await client.request<{
+		data?: {
+			items?: Array<{
+				account: string;
+				hasAccessToken: boolean;
+				platformUserId: string;
+				proxyUrl: string;
+			}>;
+		};
+		ret?: boolean;
+	}>({
+		headers: { "omni-platform": "sub" },
+		method: "GET",
+		path: `https://omni-api.toonhub.top/platform/accounts?platformName=sub&pageSize=${pageSize}`,
+		timeoutMs: 10000,
+	});
+
+	if (!res.ret || !res.data?.items || res.data.items.length === 0) {
+		return [];
+	}
+
+	const rawItems = res.data.items;
+
+	// 优先选取具备有效 Token 的账号作为请求发起方标识 (omni-account)
+	const callerAccount =
+		rawItems.find((i) => i.hasAccessToken && i.account)?.account ||
+		rawItems[0]?.account ||
+		"18137075009";
+
+	// 并行水合每个账号的资料（昵称、属性、头像）
+	const enrichedList = await Promise.allSettled(
+		rawItems.map(async (item): Promise<SubPoolAccountItem> => {
+			const targetId = item.platformUserId || item.account;
+			let displayName: string | undefined;
+			let roleTag: string | undefined;
+			let avatarUrl: string | undefined;
+
+			try {
+				const effectiveCaller = item.hasAccessToken
+					? item.account
+					: callerAccount;
+				const userRes = await client.request<{
+					code?: number;
+					status?: string | number;
+					data?: RawSubProfile | RawSubProfile[];
+				}>({
+					account: {
+						accountIdentifier: effectiveCaller,
+						channel: "sub",
+						createdAt: Date.now(),
+						id: `sub:${effectiveCaller}`,
+						isEnabled: true,
+						name: effectiveCaller,
+						proxyUrl: item.proxyUrl || undefined,
+					},
+					headers: {
+						Accept: "application/json",
+						"omni-account": effectiveCaller,
+						"omni-platform": "sub",
+					},
+					method: "GET",
+					path: `https://omni-relay.toonhub.top/fem/api/appUser/appUserInfo?appUserId=${encodeURIComponent(targetId)}`,
+					timeoutMs: 4000,
+				});
+
+				const p = Array.isArray(userRes.data)
+					? userRes.data[0]
+					: userRes.data;
+				if (p) {
+					const parsed = parseRawSubProfile(p);
+					displayName = parsed.displayName;
+					const rawTag = (p.userTag ?? p.user_tag ?? p.type) as
+						| string
+						| number
+						| undefined;
+					roleTag = formatSubRole(rawTag);
+					if (parsed.photos && parsed.photos.length > 0) {
+						const rawAvatar = parsed.photos[0]?.thumbnailUrl;
+						if (rawAvatar) {
+							avatarUrl = await resolveSubImageDataUrl(rawAvatar);
+						}
+					}
+				}
+			} catch (err) {
+				console.warn(
+					`Failed to hydrate profile for Sub account ${item.account}:`,
+					err,
+				);
+			}
+
+			return {
+				account: item.account,
+				avatarUrl,
+				displayName: displayName || item.account,
+				hasAccessToken: item.hasAccessToken,
+				platformUserId: item.platformUserId,
+				proxyUrl: item.proxyUrl,
+				roleTag,
+			};
+		}),
+	);
+
+	return enrichedList.map((settled, index) => {
+		if (settled.status === "fulfilled") {
+			return settled.value;
+		}
+		const fallback = rawItems[index] ?? {
+			account: "",
+			hasAccessToken: false,
+			platformUserId: "",
+			proxyUrl: "",
+		};
+		return {
+			account: fallback.account,
+			displayName: fallback.account,
+			hasAccessToken: fallback.hasAccessToken,
+			platformUserId: fallback.platformUserId,
+			proxyUrl: fallback.proxyUrl,
+		};
+	});
 }

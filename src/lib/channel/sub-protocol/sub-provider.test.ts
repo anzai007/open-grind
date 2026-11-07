@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { SubProvider } from "../providers/sub-provider";
+import type { RelayClient } from "../scruff-protocol/relay-client";
 import { CHANNEL_METAS } from "../types";
+import { fetchSubPoolAccountsWithProfiles } from "./sub-account-verifier";
 import {
 	DEFAULT_SUB_MEDIA_BASE_URL,
 	formatSubGender,
@@ -498,5 +500,70 @@ describe("SubProvider Implementation", () => {
 		);
 		expect(msg.text).toBe("[图片]");
 		expect(msg.isFromMe).toBe(true);
+	});
+
+	it("hydrates platform pool accounts with nickname, role and avatar", async () => {
+		const mockClient = {
+			request: vi.fn().mockImplementation((opts: { path: string }) => {
+				if (opts.path.includes("/platform/accounts")) {
+					return Promise.resolve({
+						ret: true,
+						data: {
+							items: [
+								{
+									account: "18137075009",
+									hasAccessToken: true,
+									platformUserId: "1257719805003255808",
+									proxyUrl: "http://127.0.0.1:8080",
+								},
+								{
+									account: "15795155771",
+									hasAccessToken: false,
+									platformUserId: "1310577775485472768",
+									proxyUrl: "",
+								},
+							],
+						},
+					});
+				}
+				if (opts.path.includes("1257719805003255808")) {
+					return Promise.resolve({
+						status: "200",
+						data: {
+							userName: "呆呆小喵",
+							userTag: "2",
+							avatarImage: {
+								miniImageUrl:
+									"/uploads/2024/07/02/1257720197736910848_mini.jpg",
+							},
+						},
+					});
+				}
+				if (opts.path.includes("1310577775485472768")) {
+					return Promise.resolve({
+						status: "200",
+						data: {
+							userName: "可可",
+							userTag: "1",
+							avatarImage: { webAddr: "/uploads/keke.jpg" },
+						},
+					});
+				}
+				return Promise.resolve({ status: "200", data: {} });
+			}),
+		} as unknown as RelayClient;
+
+		const pool = await fetchSubPoolAccountsWithProfiles(mockClient);
+
+		expect(pool).toHaveLength(2);
+		expect(pool[0]!.account).toBe("18137075009");
+		expect(pool[0]!.displayName).toBe("呆呆小喵");
+		expect(pool[0]!.roleTag).toBe("M");
+		expect(pool[0]!.avatarUrl).toContain("1257720197736910848_mini.jpg");
+
+		expect(pool[1]!.account).toBe("15795155771");
+		expect(pool[1]!.displayName).toBe("可可");
+		expect(pool[1]!.roleTag).toBe("S");
+		expect(pool[1]!.avatarUrl).toContain("keke.jpg");
 	});
 });

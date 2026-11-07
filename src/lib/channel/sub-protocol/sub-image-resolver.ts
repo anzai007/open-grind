@@ -23,7 +23,12 @@ export async function resolveSubImageDataUrl(
 	}
 
 	if (!isTauriEnvironment()) {
-		return trimmed;
+		const proxied = trimmed.replace(
+			/^https:\/\/images\.sublifeapp\.com/,
+			"/_sub_images",
+		);
+		subImageDataUrlCache.set(trimmed, proxied);
+		return proxied;
 	}
 
 	const inFlight = inFlightFetches.get(trimmed);
